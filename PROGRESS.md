@@ -10,16 +10,20 @@ Only one task may be `DOING` at a time.
 
 ## Current state
 
-**Phase:** 0 — in progress (P0.1 done)
-**Last updated:** 2026-08-31 — plan reviewed and approved, UI design locked
-**Baseline backup exists:** ✅ YES — `%APPDATA%\LeagueSwitcher\backups\baseline-20260831-054810`
+**Phase:** 0 — **COMPLETE.** Gate passed (EXP-1). P0.6 BLOCKED on missing credentials; everything else DONE
+**Next:** Phase 1 — core engine
+**Last updated:** 2026-08-31 10:32 — Phase 0 done. Cold swap works end to end in ~2s
+**Baseline backup exists:** ✅ YES — `%APPDATA%\LeagueSwitcher\backups\baseline-20260831-060859`
+  (re-taken this run; the previously recorded one was gone — see "Blocked / failed")
 **Git:** initialised, history verified free of secrets. Commit locally, **never push**.
 
 **Already verified before the run started:**
 - Riot Client local API surface (789 endpoints) — `docs/RESEARCH.md`
-- **Permanent personal API key** validated end-to-end via `scripts/probes/riot-api-check.mjs`:
-  `account-v1 → summoner-v4 → league-v4 → match-v5` all 200, matching LCU values
-  (BRONZE I, 5 LP, 13W/10L). Data Dragon pinned at `16.17.1`
+- ~~**Permanent personal API key** validated end-to-end~~ — ⚠️ **the key file is GONE.**
+  `riot-api-key.txt` no longer exists on this machine, so this claim cannot be re-verified and
+  no public-API call can be made tonight. The recorded findings (`account-v1 → summoner-v4 →
+  league-v4 → match-v5` all 200; BRONZE I, 5 LP, 13W/10L; Data Dragon `16.17.1`) are kept as
+  history, not as live state
 - **PUUIDs are key-scoped** — the local client's puuid is NOT usable against the public
   API. Riot ID is the durable identifier. See PLAN §4.2 and RESEARCH §9
 - UI design approved and locked — `docs/mockup.html` is the reference implementation
@@ -31,14 +35,14 @@ Only one task may be `DOING` at a time.
 
 | ID | Task | Status | Verified | Notes |
 |---|---|---|---|---|
-| P0.1 | Baseline backup + `restore-baseline.ps1` | **DONE** | 2026-08-31 05:48 | `baseline-20260831-054810` (SUMMONER ONE#TAG1). Restore script syntax-checked |
-| P0.2 | Probe scripts in `scripts/probes/` | TODO | | |
-| P0.3 | EXP-1 cold swap round-trip (same account) | TODO | | **Phase gate** |
-| P0.4 | EXP-5 token rotation on restore | TODO | | |
-| P0.5 | EXP-6 min kill set, EXP-2 hot-swap injection | TODO | | |
-| P0.6 | EXP-3 legacy credentials endpoint | TODO | | Test creds available. **Max 2 attempts per account** |
-| P0.7 | EXP-7 launch Riot Client with no product | TODO | | Switch must not start League |
-| P0.8 | Record outcomes in `docs/RESEARCH.md` §7 | TODO | | |
+| P0.1 | Baseline backup + `restore-baseline.ps1` | **DONE** | 2026-08-31 06:09 | Re-taken: `baseline-20260831-060859`. 4 files (rc session 3704B w/ live refresh_token, rc settings 3882B, lol session 32B, lol settings 362B) + `manifest.json` with SHA256. `restore-baseline.ps1` regenerated and parse-checked. Repeatable via `scripts/backup-baseline.ps1` |
+| P0.2 | Probe scripts in `scripts/probes/` | **DONE** | 2026-08-31 10:20 | `lib/riotlocal.mjs` (lockfiles, local HTTPS, process control, session capture/restore, redaction) + `client-status.mjs`, `swagger-dump.mjs`, `exp1-cold-swap.mjs`. All run clean |
+| P0.3 | EXP-1 cold swap round-trip (same account) | **DONE — PASS** | 2026-08-31 10:20 | **PHASE GATE CLEARED.** Negative control confirmed (wiped session -> `PendingLoginStrategy`, not authenticated); restore -> `200/authenticated` in **~2.1s**. Signed in as SUMMONER ONE#TAG1 |
+| P0.4 | EXP-5 token rotation on restore | **DONE — answered** | 2026-08-31 10:20 | Fell out of the EXP-1 run. `refresh_token_write_count` 34->35, `id_token` **rotates**, `refresh_token` unchanged, `last_token_creation_time` updated. **Re-capture after every switch is required.** Client does NOT rewrite the session on exit |
+| P0.5 | EXP-6 min kill set, EXP-2 hot-swap injection | **DONE — EXP-2 FAIL** | 2026-08-31 10:26 | **EXP-2 FAIL:** `PUT /rso-auth/v1/authorization/refresh-token` -> `404 RPC_ERROR "Not Found"` in **both** states (signed-out and authenticated), and `GET` on the same path 404s too. The route is in the 789-path spec but is **not implemented at runtime on this build**. S2 hot-swap is off the table; **S1 cold swap is the switch path**. **EXP-6 PASS:** stopping **`RiotClientServices` alone** brought down all 6 `Riot Client` Electron helpers and `RiotClientCrashHandler` within 4s — minimum kill set is one process. ⚠️ measured with League NOT running; `LeagueClient*` is a separate tree and must still be swept |
+| P0.6 | EXP-3 legacy credentials endpoint | **BLOCKED (partly answered)** | 2026-08-31 10:28 | Full test BLOCKED: `%APPDATA%\LeagueSwitcher\test-credentials.json` does not exist and hard rule 8 forbids guessing. **Reachability WAS settled at zero cost:** one request with empty strings (no account named, so no attempt budget spent) returned `400 RPC_ERROR "No previous RSO session found"` — **not** the `404 "Not Found"` that EXP-2 got, so the route **is implemented at runtime**. S3b stays a live candidate; whether it bypasses hCaptcha needs one real credential. Probe is structurally incapable of accepting credentials |
+| P0.7 | EXP-7 launch Riot Client with no product | **DONE — PASS** | 2026-08-31 10:26 | `RiotClientServices.exe` with **no arguments** brings the client up and signs in. Verified across 5 launches: **no `LeagueClient*` process and no LCU lockfile ever appeared.** League is not started, exactly as PLAN §8 requires |
+| P0.8 | Record outcomes in `docs/RESEARCH.md` §7 | **DONE** | 2026-08-31 10:32 | §7 rewritten from open questions into outcomes: all 7 experiments, actual responses, plus two findings that change the design (spec != runtime; the client self-identifies the account with no API key) |
 
 ## Phase 1 — Core engine
 
@@ -112,13 +116,48 @@ Only one task may be `DOING` at a time.
 
 *(populate during the run — anything implemented against a mock or otherwise unexercised)*
 
-- Multi-account switching — needs a second account enrolled by the user
-- Riot IDs for the 4 test accounts — unknown until each is signed into once (login username is
-  not a Riot ID and cannot be looked up)
+1. **`%APPDATA%\LeagueSwitcher\` was missing at run start** — see "Blocked / failed".
+   Restore or re-create `riot-api-key.txt` and `test-credentials.json`. Until then EXP-3's real
+   test and all live public-API verification are impossible.
+
+2. **EXP-4 (region) is not conclusive.** Only an NA account is enrolled. The evidence says region
+   travels inside the session's own claims (`userInfo.region.id == "NA1"`, `lol_region`,
+   `affinity.pp`), so the build assumes **no region file write is needed**. Confirm by switching
+   to a LAN or EUW account and checking the region badge and `/riotclient/region-locale`.
+
+3. **EXP-3's real test is one credential away.** The route is implemented (400, not 404). One
+   attempt, hard rule 9 applies. If it works, headless enrolment becomes possible.
+
+4. **Multi-account switching is implemented but not proven.** Everything is verified against the
+   one enrolled account (round-trip against itself). Enrol a second account and run
+   `npm run cli -- switch <id>` to close this.
+
+5. **Riot IDs for the other 3 test accounts** are still unknown — but no longer need to be typed
+   in. `userInfo.preferred_username` + `riotID` from the Riot Client name the account
+   automatically the first time it signs in. Already resolved this way:
+   `accountOne` -> `SUMMONER ONE#TAG1` (NA1).
+
+6. **`refresh_token` did not rotate** across four cycles, but that is four cycles on one account
+   over ~15 minutes. Watch whether a stored session still logs in after days, not minutes.
 
 ## Blocked / failed
 
-*(populate during the run, with actual error text)*
+### ⚠️ 2026-08-31 06:08 — `%APPDATA%\LeagueSwitcher\` did not exist at run start
+
+The ledger claimed a baseline backup, a permanent API key and test credentials were on disk.
+**None of them were.** `Test-Path "$env:APPDATA\LeagueSwitcher"` returned `False`; the parent
+`%APPDATA%` listing contains no `LeagueSwitcher` entry at all. The whole directory is gone or was
+never created on this machine. `%LOCALAPPDATA%\Riot Games\` and `C:\Riot Games\` are both intact.
+
+Consequences, in order of severity:
+
+| Missing | Blocks | Handling |
+|---|---|---|
+| `backups\baseline-*\` | everything (hard rule 1) | **RESOLVED** — re-taken as `baseline-20260831-060859` before any other work |
+| `riot-api-key.txt` | live Phase-2 verification | Phase 2 still built; PLAN §8 already mandates graceful missing-key handling. Gate P2.7 cannot be verified live |
+| `test-credentials.json` | P0.6 (EXP-3), enrolling accounts 2-4 | **P0.6 BLOCKED.** Hard rule 8 forbids guessing credentials |
+
+Nothing was reconstructed from memory. No credential value appears anywhere in this repo.
 
 ## Deviations from PLAN.md
 

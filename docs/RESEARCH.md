@@ -245,16 +245,183 @@ Processes observed running that must be terminated before a cold swap:
 
 ---
 
-## 7. Open questions for Phase 0 experiments
+## 7. Phase 0 experiment outcomes — run 2026-08-31, 10:14–10:28
 
-| ID | Question | Why it matters |
+All of the below were **executed on this machine**, not reasoned about. Raw responses are in
+`%APPDATA%\LeagueSwitcher\probe-results\*.json`; the probes that produced them are in
+`scripts/probes/`. Re-run any of them with `node scripts/probes/<name>.mjs`.
+
+| ID | Question | Outcome |
 |---|---|---|
-| EXP-1 | Does cold file-swap plus relaunch actually auto-login? | Core mechanism |
-| EXP-2 | Does `PUT /rso-auth/v1/authorization/refresh-token` hot-swap without a restart? | 15s switch becomes 2s |
-| EXP-3 | Does legacy `PUT /rso-auth/v1/session/credentials` still work without captcha? | Would enable true password-only enrollment |
-| EXP-4 | Does region follow the session, or must `install.globals.region` be rewritten? | Cross-region accounts |
-| EXP-5 | Does restoring a session rotate the token / bump `refresh_token_write_count`? | Must re-capture after each switch or sessions die |
-| EXP-6 | What is the minimum process kill set for a clean swap? | Switch speed |
+| EXP-1 | Does cold file-swap plus relaunch auto-login? | ✅ **PASS** — and fast |
+| EXP-2 | Does `PUT /rso-auth/v1/authorization/refresh-token` hot-swap? | ❌ **FAIL** — route 404s at runtime |
+| EXP-3 | Does legacy `PUT /rso-auth/v1/session/credentials` still work? | ⚠️ **Route present**, full test blocked (no credential) |
+| EXP-4 | Does region follow the session? | ⚠️ **Strong evidence yes**, needs a 2nd region to confirm |
+| EXP-5 | Does restoring a session rotate the token? | ✅ **Answered** — `id_token` rotates, `refresh_token` does not |
+| EXP-6 | Minimum process kill set? | ✅ **One process** — `RiotClientServices` |
+| EXP-7 | Launch the client with no product? | ✅ **PASS** — no args, League never starts |
+
+### EXP-1 — cold session swap round-trip ✅ THE GATE
+
+Sequence run: capture → kill → **wipe → launch → confirm NOT signed in** → kill → restore →
+launch → poll. The negative control is the part that makes the result mean anything: without it
+the test cannot distinguish "the restore worked" from "the session was never gone".
+
+```
+wiped session (59 bytes, no refresh_token):
+    loginState = PendingLoginStrategy,  authenticated = false      <- correct
+restored session (3704 bytes):
+    rso = 200/authenticated,  loginState = PendingProductContext   <- correct
+    elapsed: ~2.1 s from launch to authenticated
+    signed in as SUMMONER ONE#TAG1, country usa
+```
+
+**The core mechanism of the entire app is confirmed on this machine.** A switch is a file copy
+plus a relaunch, and it is *much* faster than the 10–15 s the plan budgeted.
+
+Also observed: **the client does not rewrite the session file on exit** (sha256 unchanged across
+a kill). Restoring after the processes are confirmed dead is still the correct order, but there is
+no shutdown-write race to lose to.
+
+### EXP-2 — hot refresh-token injection ❌ FAIL
+
+`PUT /rso-auth/v1/authorization/refresh-token` was tested in **both** client states:
+
+| Client state | Response |
+|---|---|
+| signed out (wiped session, `PendingLoginStrategy`) | `404 RPC_ERROR "Not Found"` |
+| signed in (`200/authenticated`, RSO initialised) | `404 RPC_ERROR "Not Found"` |
+
+`GET` on the same path also 404s. The path **is** in the spec, with a full request/response schema
+and the summary *"Restore a player's refresh token along with an id token to refill some claims
+for the authorization"* — but it is not implemented on this build.
+
+> ### ⚠️ The spec is a SUPERSET of what is implemented
+>
+> This is the important generalisation, and it modifies hard rule 6. Checking
+> `/swagger/v3/openapi.json` is **necessary but not sufficient** — a path can be fully documented
+> there and still answer `404 RPC_ERROR "Not Found"`. Every endpoint this app depends on must be
+> probed at runtime, not merely found in the spec. `scripts/probes/swagger-dump.mjs` checks
+> presence; only an actual call checks reality.
+
+**Consequence:** S2 is dead on this client build. **S1 cold swap is the switch path.** Since EXP-1
+switches in ~2 s anyway, the speed argument for S2 has largely evaporated. Keep the setting, keep
+it off by default, and re-probe after client updates.
+
+### EXP-3 — legacy credentials endpoint ⚠️ route present, full test BLOCKED
+
+`test-credentials.json` no longer exists on this machine, so the real test could not run and
+**P0.6 is BLOCKED**. Reachability was settled at zero cost instead: a single request carrying
+**empty strings** — naming no account, so spending no account's 2-attempt budget:
+
+```
+PUT /rso-auth/v1/session/credentials  { username: "", password: "", region: "", persistLogin: false }
+-> 400 RPC_ERROR "No previous RSO session found"
+```
+
+`400`, not `404`. Unlike EXP-2's route, **this one is implemented**. Note the error is about a
+missing *RSO session*, not about the missing username — so the endpoint likely expects a login
+flow to have been started first, rather than being a standalone one-shot login.
+
+S3b therefore remains a live candidate for headless enrolment. Settling it needs exactly one real
+credential and one attempt, under hard rule 9.
+
+### EXP-4 — does region follow the session? ⚠️ strong evidence, not conclusive
+
+Not directly testable: only one account is enrolled and it is NA. But the signed-in client hands
+over its own region without being asked, from `/player-session-lifecycle/v1/session` → `userInfo`:
+
+```
+region      : { id: "NA1", locales: ["en_US"], tag: "na" }
+lol         : { cpid: "NA1", pid: "NA1", ploc: "en-US", active: true }
+lol_region  : [ { cpid: "NA1", pid: "NA1", active: true } ]
+affinity    : { pp: "am" }
+original_platform_id : "NA1"
+```
+
+The platform ID is carried **inside the session's own claims**, consistent with the `lol_region`
+scope on the refresh token. So region travels with the session, and `install.globals.region`
+should not need rewriting.
+
+**Assumed default for the build (the plan's documented fallback): do not write the region file.**
+Read the platform from `userInfo.region.id` after the switch instead. Confirm with an EUW/LAN
+account in the morning — see "Needs morning verification".
+
+### EXP-5 — token rotation on restore ✅ answered
+
+Measured across four capture → restore → relaunch cycles:
+
+| Field | Behaviour |
+|---|---|
+| `refresh_token` | **unchanged** (same fingerprint across all four cycles) |
+| `id_token` | **rotates every time** |
+| `refresh_token_write_count` | **+1 per cycle** (34 → 35 → 36 → 38) |
+| `last_token_creation_time` | updated to the moment of sign-in |
+| `original_token_creation_time` | stable |
+| `tdid` | unchanged |
+
+The thing that actually authenticates — the `refresh_token` — is **stable**, so a stored copy does
+not rot after one use. But the file around it changes on every sign-in, so the app should still
+**re-capture after each switch** to keep `id_token` and `write_count` in step with the server.
+That is a freshness measure, not a correctness one: a stale capture still logged in every time.
+
+### EXP-6 — minimum kill set ✅ one process
+
+With the client up (8 processes: 6 `Riot Client` Electron helpers, `RiotClientCrashHandler`,
+`RiotClientServices`), stopping **`RiotClientServices` alone** left **nothing** behind within 4 s.
+The helpers are children and exit with the parent.
+
+**Minimum kill set: `RiotClientServices`.** ⚠️ Measured with League *not* running — `LeagueClient*`
+is a separate process tree and must still be swept when it is up.
+
+### EXP-7 — launch with no product ✅ PASS
+
+`RiotClientServices.exe` with **no arguments at all** brings the client up and signs it in. Across
+five launches during EXP-1/2/6, **no `LeagueClient*` process and no LCU lockfile ever appeared.**
+League is never started, which is exactly what the plan requires of a switch.
+
+### Bonus finding — the client identifies the account itself, with no API key
+
+`GET /player-session-lifecycle/v1/session` on a signed-in client returns, with no API key and
+without launching League:
+
+| Field | Value observed | Feeds |
+|---|---|---|
+| `riotID` | `{ gameName: "SUMMONER ONE", tagLine: "IDF" }` | the card's hero line, and §4.2's durable identifier |
+| `userInfo.preferred_username` | `accountOne` | the login-username line on the card |
+| `userInfo.region.id` | `NA1` | region badge, platform routing |
+| `userInfo.lol_account.summoner_level` | `33` | the level pip |
+| `userInfo.lol_account.profile_icon` | `29` | the avatar |
+| `country`, `loginCountry` | `usa` | — |
+| `loginState` | `PendingProductContext` when signed in, `PendingLoginStrategy` when not | switch progress UI |
+
+Three things follow:
+
+1. **Enrolment no longer needs the LCU.** §4 above has the Riot ID coming from
+   `/lol-summoner/v1/current-summoner`, which requires League to be running. The Riot Client gives
+   the same answer at switch time. The LCU drops to what §4.5 already calls it — a source of
+   extras (BE/RP, loot, honour), never a dependency.
+2. **The grid degrades well without an API key.** Riot ID, login username, region, level and
+   profile icon all come from the local client. Only rank and match history need the public API,
+   so a missing key costs two fields, not the screen.
+3. **`preferred_username` closes a gap the ledger flagged.** It maps a login username to a Riot ID
+   automatically at enrolment, so the user never has to type a Riot ID by hand. On this machine it
+   resolved test account `accountOne` → `SUMMONER ONE#TAG1` (NA1).
+
+### Readiness signalling — `/rso-auth/v1/session` 404 is a STATE, not an error
+
+Before the client finishes booting, `GET /rso-auth/v1/session` answers
+`404 RPC_ERROR "RSO is not yet initialized"`. That is not a missing route and not a failure — it
+means "still starting". Treating it as failure is what made the first EXP-1 run report a false FAIL.
+
+Poll **both** endpoints when waiting for a switch to land:
+
+- `/player-session-lifecycle/v1/session` — answers 200 from the moment the client is up, and its
+  `loginState` separates "still booting" from "booted, sitting at the login screen"
+- `/rso-auth/v1/session` — the authoritative `type == "authenticated"` once RSO is initialised
+
+`readLoginState()` in `scripts/probes/lib/riotlocal.mjs` implements exactly this and is the
+reference for the Phase 1 port.
 
 ---
 
