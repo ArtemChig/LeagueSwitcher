@@ -10,9 +10,10 @@ Only one task may be `DOING` at a time.
 
 ## Current state
 
-**Phase:** 0 — ready to start
+**Phase:** 0 — in progress (P0.1 done)
 **Last updated:** 2026-08-31 — plan reviewed and approved, UI design locked
-**Baseline backup exists:** ❌ NO — must be created before any write to `%LOCALAPPDATA%\Riot Games\`
+**Baseline backup exists:** ✅ YES — `%APPDATA%\LeagueSwitcherackupsaseline-20260831-054810\`
+**Git:** initialised, 2 commits, history verified free of secrets. Commit locally, never push.
 
 **Already verified before the run started:**
 - Riot Client local API surface (789 endpoints) — `docs/RESEARCH.md`
@@ -27,7 +28,7 @@ Only one task may be `DOING` at a time.
 
 | ID | Task | Status | Verified | Notes |
 |---|---|---|---|---|
-| P0.1 | Baseline backup + `restore-baseline.ps1` | TODO | | **Blocks everything else** |
+| P0.1 | Baseline backup + `restore-baseline.ps1` | **DONE** | 2026-08-31 05:48 | `baseline-20260831-054810` (SUMMONER ONE#TAG1). Restore script syntax-checked |
 | P0.2 | Probe scripts in `scripts/probes/` | TODO | | |
 | P0.3 | EXP-1 cold swap round-trip (same account) | TODO | | **Phase gate** |
 | P0.4 | EXP-5 token rotation on restore | TODO | | |
@@ -78,7 +79,7 @@ Only one task may be `DOING` at a time.
 | ID | Task | Status | Verified | Notes |
 |---|---|---|---|---|
 | P4.1 | Log redaction + tests | TODO | | |
-| P4.2 | Secret-scan hook | TODO | | |
+| P4.2 | Secret-scan hook | **DONE** | 2026-08-31 | `scripts/scan-secrets.mjs` + `.git/hooks/pre-commit`. Verified: blocks planted key AND password |
 | P4.3 | Edge cases (in-game, Vanguard, offline) | TODO | | |
 | P4.4 | Session-health checker | TODO | | |
 | P4.5 | Vault export/import | TODO | | |
