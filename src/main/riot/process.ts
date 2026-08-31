@@ -191,13 +191,38 @@ export async function killProcesses(
   }
 
   const list = psNameArray(names);
+
+  // Why P/Invoke instead of Stop-Process.
+  //
+  // With Vanguard's driver loaded, `Stop-Process -Force` and `taskkill /F` both fail on
+  // RiotClientServices and RiotClientCrashHandler with "Access is denied" — as the same
+  // user, with the same integrity level that launched them. Enrolment died on exactly this:
+  //   FAILED: Could not close RiotClientCrashHandler, RiotClientServices.
+  //
+  // The cause is the access mask, not the privilege. Both helpers open the target with a
+  // wider mask than they need (Stop-Process reads process metadata; taskkill enumerates
+  // windows first), and the wider mask is what gets denied. Opening with PROCESS_TERMINATE
+  // (0x0001) alone is granted, and TerminateProcess then returns success immediately —
+  // verified by hand against both surviving processes.
+  //
+  // So: ask politely via CloseMainWindow, then terminate with the narrowest possible right.
+  // Stop-Process stays as a last resort for anything the direct call could not open.
   const script =
     `$names = ${list}; ` +
+    "if (-not ('Ls.Kill' -as [type])) { Add-Type -Namespace Ls -Name Kill -MemberDefinition '" +
+    "[DllImport(\"kernel32.dll\", SetLastError=true)] public static extern IntPtr OpenProcess(uint a, bool i, int p); " +
+    "[DllImport(\"kernel32.dll\", SetLastError=true)] public static extern bool TerminateProcess(IntPtr h, uint c); " +
+    "[DllImport(\"kernel32.dll\", SetLastError=true)] public static extern bool CloseHandle(IntPtr h);' } " +
     "$procs = Get-Process -ErrorAction SilentlyContinue | Where-Object { $names -contains $_.Name }; " +
     "foreach ($p in $procs) { try { $null = $p.CloseMainWindow() } catch {} } " +
     `Start-Sleep -Milliseconds ${graceMs}; ` +
     "$procs = Get-Process -ErrorAction SilentlyContinue | Where-Object { $names -contains $_.Name }; " +
-    "foreach ($p in $procs) { try { Stop-Process -Id $p.Id -Force -ErrorAction Stop } catch {} } " +
+    "foreach ($p in $procs) { " +
+    "  $done = $false; " +
+    "  try { $h = [Ls.Kill]::OpenProcess(0x0001, $false, $p.Id); " +
+    "        if ($h -ne [IntPtr]::Zero) { $done = [Ls.Kill]::TerminateProcess($h, 0); " +
+    "                                     $null = [Ls.Kill]::CloseHandle($h) } } catch {} " +
+    "  if (-not $done) { try { Stop-Process -Id $p.Id -Force -ErrorAction Stop } catch {} } } " +
     `Start-Sleep -Milliseconds ${settleMs}`;
 
   await powershell(script);
