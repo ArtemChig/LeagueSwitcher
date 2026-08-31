@@ -6,10 +6,7 @@
  * Reads the key from %APPDATA%\LeagueSwitcher\riot-api-key.txt. Never logs it.
  * Exit code 0 = all required checks passed.
  */
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
-const KEY_PATH = join(process.env.APPDATA, "LeagueSwitcher", "riot-api-key.txt");
+import { readApiKey } from "./lib/riotlocal.mjs";
 
 /** region -> platform host (summoner-v4, league-v4) */
 export const PLATFORM = {
@@ -27,7 +24,21 @@ export const REGIONAL = {
   oc1: "sea", ph2: "sea", sg2: "sea", th2: "sea", tw2: "sea", vn2: "sea",
 };
 
-const key = readFileSync(KEY_PATH, "utf8").trim();
+// The key may be in the environment, the legacy plaintext file, or the encrypted vault.
+// Before this, the probe read the plaintext file directly and died with an ENOENT stack
+// trace once that file had been migrated into the vault and deleted.
+const { key, source } = readApiKey();
+if (!key) {
+  console.log(`No Riot API key found: ${source}.`);
+  console.log("");
+  console.log("Provide one with either:");
+  console.log("  set RIOT_API_KEY=RGAPI-...            (one-off, nothing stored)");
+  console.log("  npm run cli -- api-key RGAPI-...      (stored encrypted in the vault)");
+  process.exit(2);
+}
+console.log(`Using the API key from ${source}.
+`);
+
 const redact = (s) => String(s).replaceAll(key, "RGAPI-<redacted>");
 
 let pass = 0, fail = 0;

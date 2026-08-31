@@ -6,7 +6,7 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
   test: {
-    root: __dirname,
+    root: import.meta.dirname,
     include: ["tests/**/*.test.ts"],
     // The vault tests call real DPAPI and scrypt, which are deliberately slow.
     testTimeout: 30_000,

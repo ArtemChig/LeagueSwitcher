@@ -91,7 +91,7 @@ machine (test credentials, API key) — see "Blocked / failed"
 | P4.3 | Edge cases (in-game, Vanguard, offline) | **DONE — verified** | 2026-08-31 11:30 | `preflightSwitch()` returns structured blockers / confirmations / notes so the UI can grey out a card without starting anything; the switch re-checks rather than trusting it. Game in progress = refused outright; League client open = needs confirmation; missing or device-bound stored token = blocked before anything is touched. **Vanguard detection verified live** — correctly reported `service stopped, driver loaded` on this machine. Offline is handled by the API layer's typed `network` failure kind |
 | P4.4 | Session-health checker | **DONE — verified** | 2026-08-31 11:20 | `refreshSessionHealth()` in `enrich/collector.ts`, driven by the vault rather than the network: no stored session = `missing` (the card must say so before the user clicks and fails), under 30 days left = `stale`. Ran live -> `accountone valid`. Sessions last ~453 days, so `stale` means the account has not been used in well over a year |
 | P4.5 | Vault export/import | **DONE — verified** | 2026-08-31 11:32 | `store/portableVault.ts`. DPAPI is deliberately non-portable, so an export needs its own scheme: AES-256-GCM under a scrypt-derived passphrase key (N=2^15), random salt and IV per export, GCM so tampering fails loudly rather than decrypting into rubbish that overwrites a working vault. Import does **not** overwrite by default. **Verified end-to-end via the CLI**: 4013-byte file, correct header, no plaintext, wrong passphrase rejected. Test export deleted afterwards — it held the real session |
-| P4.6 | Vitest coverage | **DONE** | 2026-08-31 11:32 | **82 tests, all passing**, across redaction (14), logger-to-disk (10), session parse/validate/restore/diff (17), vault + portable export (24), routing / rate limiter / links (17). The vault tests hit **real DPAPI** rather than a mock — mocking the encryption would leave the one thing worth proving untested. Typecheck clean under `strict` + `noUncheckedIndexedAccess` |
+| P4.6 | Vitest coverage | **DONE** | 2026-08-31 12:34 | **96 tests, all passing**: redaction (14), logger-to-disk (10), session parse/validate/restore/diff (17), vault + portable export (24), routing / rate limiter / links (17), **strategy ladder (14)**. The vault tests hit **real DPAPI** rather than a mock — mocking the encryption would leave the one thing worth proving untested. ⚠️ The ladder tests were added in a sweep: this row previously claimed ladder coverage it did not have |
 
 ## Phase 5 — Packaging
 
@@ -181,6 +181,45 @@ Consequences, in order of severity:
 | `test-credentials.json` | P0.6 (EXP-3), enrolling accounts 2-4 | **P0.6 BLOCKED.** Hard rule 8 forbids guessing credentials |
 
 Nothing was reconstructed from memory. No credential value appears anywhere in this repo.
+
+## Sweep passes
+
+### Sweep 1 — 2026-08-31 12:29
+
+Re-read the code with fresh eyes after all phases were complete. Four finds, all fixed and
+re-verified:
+
+1. **Electron was writing Chromium's data into the vault directory.** `userData` defaults to
+   `%APPDATA%\<productName>`, which for this app is `%APPDATA%\LeagueSwitcher` — the directory
+   holding `secrets.enc`, the encrypted sessions and the backups. `GPUCache`, `Code Cache`,
+   `Local Storage`, `Network`, `Preferences`, `DIPS` and more were landing beside them. Now
+   pointed at a `chromium/` subfolder; 16 leftover items removed **by name, never by pattern**.
+   The data directory went from 24 entries to 8.
+2. **Three PowerShell spawns per status poll.** `isRiotClientRunning` / `isLeagueClientRunning` /
+   `isGameRunning` each enumerated separately, and the UI polled every 5s. One
+   `getRunningState()` now answers all three; polling is 10s and pauses while the window is hidden.
+3. **A dead `accounts:changed` event** — main sent it, nothing listened, so the launch refresh
+   only appeared on the next poll. Wired up rather than deleted.
+4. **A flex-only account was labelled "Solo/duo"** because `toView` falls back to `ranked[0]`.
+   The queue is now carried through and the label follows it.
+
+Regression check: a real switch still runs in **7.1s**, unchanged from before Phase 2.
+
+### Sweep 2 — 2026-08-31 12:36
+
+1. **P4.6 claimed strategy-ladder coverage it did not have.** Added 14 tests for the ladder's
+   safety properties — game-in-progress refused (and not overridable by confirmation), League
+   client requiring confirmation, target verified before anything is touched, and the **call
+   ordering** asserted explicitly (`capture:current -> shutdown -> restore -> launch ->
+   capture:target`), since ordering is exactly what a refactor breaks silently. All passed first
+   run, which is itself the useful result: the ordering is what it was claimed to be.
+2. **`riot-api-check.mjs` died with an ENOENT stack trace** — it read `riot-api-key.txt`
+   directly, which no longer exists once the key has been migrated into the vault. It now
+   resolves the key from `RIOT_API_KEY`, the legacy file, or `secrets.enc` via DPAPI, and exits
+   with an explanation rather than a trace. Verified end-to-end by storing a key, reading it back
+   through the vault, and clearing it — which also confirms the duplicated DPAPI entropy constant
+   still matches `src/main/store/dpapi.ts`.
+3. Configs moved off `__dirname`, which Vite warned would break under its future native loader.
 
 ## Deviations from PLAN.md
 

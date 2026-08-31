@@ -406,6 +406,74 @@ export async function waitForAuthenticated(lock, timeoutMs = 90000, intervalMs =
   return { ok: false, state: last, observations: seen };
 }
 
+// ---------------------------------------------------------------- api key
+
+/**
+ * Find the Riot API key, wherever it currently lives.
+ *
+ * The key moved into the DPAPI vault (PLAN §7 rule 8 — plaintext credential files are migrated
+ * then deleted), so a probe that only knew about `riot-api-key.txt` died with an ENOENT stack
+ * trace once migration had happened. Order of preference:
+ *
+ *   1. RIOT_API_KEY in the environment — for a one-off run without touching stored state
+ *   2. the legacy plaintext file, if it has not been migrated yet
+ *   3. secrets.enc, decrypted through DPAPI
+ *
+ * Returns null rather than throwing; callers report the situation themselves.
+ *
+ * ⚠️ ENTROPY must match src/main/store/dpapi.ts, or the vault will not open.
+ */
+const DPAPI_ENTROPY = "LeagueSwitcher.v1";
+
+export function readApiKey() {
+  if (process.env.RIOT_API_KEY?.trim()) {
+    const key = process.env.RIOT_API_KEY.trim();
+    registerSecret(key);
+    return { key, source: "RIOT_API_KEY environment variable" };
+  }
+
+  const legacy = join(PATHS.appRoot, "riot-api-key.txt");
+  if (existsSync(legacy)) {
+    const key = readFileSync(legacy, "utf8").trim();
+    if (key) {
+      registerSecret(key);
+      return { key, source: legacy };
+    }
+  }
+
+  const vaultFile = join(PATHS.appRoot, "secrets.enc");
+  if (existsSync(vaultFile)) {
+    try {
+      const script = [
+        "$ErrorActionPreference = 'Stop'",
+        "Add-Type -AssemblyName System.Security",
+        "$b64 = [Console]::In.ReadToEnd().Trim()",
+        "$bytes = [Convert]::FromBase64String($b64)",
+        `$entropy = [Text.Encoding]::UTF8.GetBytes('${DPAPI_ENTROPY}')`,
+        "$plain = [Security.Cryptography.ProtectedData]::Unprotect($bytes, $entropy, 'CurrentUser')",
+        "[Text.Encoding]::UTF8.GetString($plain)",
+      ].join("; ");
+
+      const json = execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
+        input: readFileSync(vaultFile).toString("base64"),
+        encoding: "utf8",
+        windowsHide: true,
+      });
+
+      const key = JSON.parse(json).apiKey;
+      if (key) {
+        registerSecret(key);
+        return { key, source: "the encrypted vault (secrets.enc)" };
+      }
+      return { key: null, source: "the vault holds no API key" };
+    } catch (err) {
+      return { key: null, source: `the vault could not be read: ${err.message.split("\n")[0]}` };
+    }
+  }
+
+  return { key: null, source: "nowhere — no environment variable, no plaintext file, no vault" };
+}
+
 // ---------------------------------------------------------------- result recording
 
 export function writeResult(name, data) {

@@ -9,11 +9,11 @@ import { resolve } from "node:path";
  * for a build wrapper this thin.
  */
 export default defineConfig({
-  root: resolve(__dirname, "src/renderer"),
+  root: resolve(import.meta.dirname, "src/renderer"),
   base: "./", // loaded over file:// in the packaged app
   plugins: [react()],
   build: {
-    outDir: resolve(__dirname, "dist/renderer"),
+    outDir: resolve(import.meta.dirname, "dist/renderer"),
     emptyOutDir: true,
     target: "chrome130",
   },
