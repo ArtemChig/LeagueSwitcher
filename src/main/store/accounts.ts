@@ -1,0 +1,264 @@
+/**
+ * P2.4 — account metadata and the stats cache.
+ *
+ * `accounts.json` holds NOTHING sensitive: no passwords, no tokens. Passwords live in the
+ * vault, sessions live encrypted beside it. This file is the thing the UI renders instantly on
+ * launch, before the API refresh has landed (PLAN §4.3), so it is deliberately plain JSON that
+ * can be read without decrypting anything.
+ */
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { appPaths } from "../riot/paths.js";
+
+export const ACCOUNTS_SCHEMA_VERSION = 1;
+
+export interface RankEntry {
+  queue: "RANKED_SOLO_5x5" | "RANKED_FLEX_SR";
+  tier: string;
+  rank: string;
+  leaguePoints: number;
+  wins: number;
+  losses: number;
+  hotStreak?: boolean;
+  veteran?: boolean;
+  freshBlood?: boolean;
+  inactive?: boolean;
+}
+
+/** Green valid · amber stale · red needs re-enrolment (PLAN §5). */
+export type SessionHealth = "valid" | "stale" | "missing";
+
+export interface Account {
+  /** Stable id, derived from the login username. */
+  id: string;
+  /** The username typed at Riot's login screen. Not a Riot ID. */
+  loginUsername: string;
+  /** Riot ID — the durable, key-independent identifier (PLAN §4.2). */
+  gameName: string | null;
+  tagLine: string | null;
+
+  /** e.g. "NA1". Read from the client's own session claims after a switch (EXP-4). */
+  platformId: string | null;
+  /** e.g. "NA". Derived from platformId. */
+  region: string | null;
+
+  /**
+   * The Riot Client's local puuid.
+   * ⚠️ Key-scoped and NOT usable against the public API — for matching a session to a profile
+   * only (RESEARCH §9).
+   */
+  localPuuid: string | null;
+
+  /**
+   * puuid as issued to OUR API key, plus a fingerprint of the key that issued it. If the key
+   * changes, every cached puuid is invalid and must be re-resolved (PLAN §4.2).
+   */
+  puuid: string | null;
+  puuidKeyFingerprint: string | null;
+
+  summonerLevel: number | null;
+  profileIconId: number | null;
+  ranked: RankEntry[];
+
+  label: string | null;
+  colorTag: string | null;
+  order: number;
+
+  enrolledAt: string | null;
+  lastSwitchedAt: string | null;
+  lastUpdated: string | null;
+  /** Populated when the last refresh for this account failed — surfaced per-card. */
+  lastError: string | null;
+
+  sessionHealth: SessionHealth;
+  /** From max_duration_between_restores; drives the amber "stale" state. */
+  sessionDaysRemaining: number | null;
+}
+
+interface AccountsFile {
+  version: number;
+  accounts: Account[];
+  /** Which account the Riot Client is currently signed in as. */
+  activeAccountId: string | null;
+  updatedAt: string;
+}
+
+export function createAccount(id: string, loginUsername: string, partial: Partial<Account> = {}): Account {
+  return {
+    id,
+    loginUsername,
+    gameName: null,
+    tagLine: null,
+    platformId: null,
+    region: null,
+    localPuuid: null,
+    puuid: null,
+    puuidKeyFingerprint: null,
+    summonerLevel: null,
+    profileIconId: null,
+    ranked: [],
+    label: null,
+    colorTag: null,
+    order: 0,
+    enrolledAt: null,
+    lastSwitchedAt: null,
+    lastUpdated: null,
+    lastError: null,
+    sessionHealth: "missing",
+    sessionDaysRemaining: null,
+    ...partial,
+  };
+}
+
+const EMPTY_FILE = (): AccountsFile => ({
+  version: ACCOUNTS_SCHEMA_VERSION,
+  accounts: [],
+  activeAccountId: null,
+  updatedAt: new Date().toISOString(),
+});
+
+function atomicWriteJson(path: string, value: unknown): void {
+  mkdirSync(dirname(path), { recursive: true });
+  const temp = join(dirname(path), `.${process.pid}-${Date.now()}.tmp`);
+  writeFileSync(temp, JSON.stringify(value, null, 2), "utf8");
+  renameSync(temp, path);
+}
+
+export class AccountStore {
+  private data: AccountsFile = EMPTY_FILE();
+  private loaded = false;
+  readonly warnings: string[] = [];
+
+  load(): void {
+    if (this.loaded) return;
+    this.loaded = true;
+
+    if (!existsSync(appPaths.accounts)) {
+      this.data = EMPTY_FILE();
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(readFileSync(appPaths.accounts, "utf8")) as AccountsFile;
+      this.data = migrate(parsed);
+    } catch (err) {
+      // A corrupt accounts.json costs metadata, never credentials or sessions — those are in
+      // the vault. Set it aside and carry on rather than refusing to start.
+      const aside = `${appPaths.accounts}.corrupt-${Date.now()}`;
+      try {
+        renameSync(appPaths.accounts, aside);
+      } catch {
+        /* best effort */
+      }
+      this.data = EMPTY_FILE();
+      this.warnings.push(`accounts.json was unreadable and has been set aside at ${aside} (${(err as Error).message})`);
+    }
+  }
+
+  save(): void {
+    this.data.updatedAt = new Date().toISOString();
+    atomicWriteJson(appPaths.accounts, this.data);
+  }
+
+  list(): Account[] {
+    this.load();
+    return [...this.data.accounts].sort((a, b) => a.order - b.order || a.loginUsername.localeCompare(b.loginUsername));
+  }
+
+  get(id: string): Account | null {
+    this.load();
+    return this.data.accounts.find((a) => a.id === id) ?? null;
+  }
+
+  /** Find by id, login username, or Riot ID — the CLI accepts any of them. */
+  find(needle: string): Account | null {
+    this.load();
+    const lower = needle.trim().toLowerCase();
+    return (
+      this.data.accounts.find((a) => a.id.toLowerCase() === lower) ??
+      this.data.accounts.find((a) => a.loginUsername.toLowerCase() === lower) ??
+      this.data.accounts.find((a) => `${a.gameName}#${a.tagLine}`.toLowerCase() === lower) ??
+      this.data.accounts.find((a) => (a.gameName ?? "").toLowerCase() === lower) ??
+      null
+    );
+  }
+
+  upsert(account: Account): Account {
+    this.load();
+    const index = this.data.accounts.findIndex((a) => a.id === account.id);
+    if (index >= 0) this.data.accounts[index] = account;
+    else {
+      account.order = account.order || this.data.accounts.length;
+      this.data.accounts.push(account);
+    }
+    this.save();
+    return account;
+  }
+
+  /** Merge a partial update into an existing account. */
+  update(id: string, changes: Partial<Account>): Account | null {
+    this.load();
+    const existing = this.get(id);
+    if (!existing) return null;
+    return this.upsert({ ...existing, ...changes, id: existing.id });
+  }
+
+  remove(id: string): boolean {
+    this.load();
+    const before = this.data.accounts.length;
+    this.data.accounts = this.data.accounts.filter((a) => a.id !== id);
+    if (this.data.activeAccountId === id) this.data.activeAccountId = null;
+    const removed = this.data.accounts.length < before;
+    if (removed) this.save();
+    return removed;
+  }
+
+  getActiveId(): string | null {
+    this.load();
+    return this.data.activeAccountId;
+  }
+
+  setActive(id: string | null): void {
+    this.load();
+    this.data.activeAccountId = id;
+    this.save();
+  }
+}
+
+/** Bring an older file forward. Unknown future versions are used as-is rather than discarded. */
+function migrate(file: AccountsFile): AccountsFile {
+  const version = file.version ?? 0;
+  const accounts = (file.accounts ?? []).map((a) => createAccount(a.id, a.loginUsername, a));
+  return {
+    version: Math.max(version, ACCOUNTS_SCHEMA_VERSION),
+    accounts,
+    activeAccountId: file.activeAccountId ?? null,
+    updatedAt: file.updatedAt ?? new Date().toISOString(),
+  };
+}
+
+/** Platform id -> the short region code shown on a card. */
+export const PLATFORM_TO_REGION: Record<string, string> = {
+  NA1: "NA", EUW1: "EUW", EUN1: "EUNE", KR: "KR", BR1: "BR",
+  LA1: "LAN", LA2: "LAS", OC1: "OCE", TR1: "TR", RU: "RU", JP1: "JP",
+  PH2: "PH", SG2: "SG", TH2: "TH", TW2: "TW", VN2: "VN",
+};
+
+export function regionFromPlatform(platformId: string | null): string | null {
+  if (!platformId) return null;
+  return PLATFORM_TO_REGION[platformId.toUpperCase()] ?? platformId.toUpperCase();
+}
+
+let singleton: AccountStore | null = null;
+
+export function getAccountStore(): AccountStore {
+  if (!singleton) {
+    singleton = new AccountStore();
+    singleton.load();
+  }
+  return singleton;
+}
+
+export function resetAccountStoreForTests(): void {
+  singleton = null;
+}

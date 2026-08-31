@@ -10,9 +10,9 @@ Only one task may be `DOING` at a time.
 
 ## Current state
 
-**Phase:** 0 — **COMPLETE.** Gate passed (EXP-1). P0.6 BLOCKED on missing credentials; everything else DONE
-**Next:** Phase 1 — core engine
-**Last updated:** 2026-08-31 10:32 — Phase 0 done. Cold swap works end to end in ~2s
+**Phase:** 1 — **COMPLETE** (P1.1-P1.7). Phase 0 complete bar P0.6 (BLOCKED, no credentials)
+**Next:** Phase 2 — data layer
+**Last updated:** 2026-08-31 10:55 — a real switch runs through the engine: `Switched via S1 in 12.8s`
 **Baseline backup exists:** ✅ YES — `%APPDATA%\LeagueSwitcher\backups\baseline-20260831-060859`
   (re-taken this run; the previously recorded one was gone — see "Blocked / failed")
 **Git:** initialised, history verified free of secrets. Commit locally, **never push**.
@@ -48,13 +48,13 @@ Only one task may be `DOING` at a time.
 
 | ID | Task | Status | Verified | Notes |
 |---|---|---|---|---|
-| P1.1 | `riot/lockfile.ts` | TODO | | Must handle stale lockfiles (validate PID) |
-| P1.2 | `riot/rcApi.ts`, `riot/lcuApi.ts` | TODO | | |
-| P1.3 | `riot/process.ts` | TODO | | |
-| P1.4 | `riot/session.ts` | TODO | | |
-| P1.5 | `store/vault.ts` | TODO | | |
-| P1.6 | `switch/strategies.ts` | TODO | | |
-| P1.7 | `scripts/cli.ts` harness | TODO | | **Phase gate:** real switch via CLI |
+| P1.1 | `riot/lockfile.ts` | **DONE** | 2026-08-31 10:52 | Parses both lockfiles, classifies absent/malformed/stale/live. Stale detection validates the PID with signal 0 (EPERM counts as alive). Password split is bounded so a colon in the password cannot corrupt the parse. Directory watcher, because a watch on a file that does not exist never fires |
+| P1.2 | `riot/rcApi.ts`, `riot/lcuApi.ts` | **DONE** | 2026-08-31 10:52 | `localApi.ts` holds the shared transport: self-signed TLS scoped per-request (never `NODE_TLS_REJECT_UNAUTHORIZED`, which would also disable verification for the API-key calls), Basic auth, retry on transport errors only. `LocalApiError` distinguishes `isNotInitialised` from `isRouteMissing` — the distinction EXP-1/EXP-2 turned on. `readLoginState()` merges both session endpoints. Every LCU call is optional by construction |
+| P1.3 | `riot/process.ts` | **DONE** | 2026-08-31 10:52 | Line-oriented enumeration (PS 5.1's `{"value":[...]}` JSON quirk documented in-file). Graceful `CloseMainWindow` then forced. `shutdownRiot` uses EXP-6's finding: narrow kill of `RiotClientServices` first, broad sweep only if something survives. Refuses outright while a game runs |
+| P1.4 | `riot/session.ts` | **DONE** | 2026-08-31 10:52 | Capture/restore/validate/diff. Restores are **atomic** (temp + rename) so a crash cannot truncate a live session. `validateSessionFile` refuses to store or restore anything implausible, and flags `is_dpop_bound: true` — the assumption the design rests on. Captures are byte-for-byte copies; the file is never re-serialised |
+| P1.5 | `store/vault.ts` | **DONE** | 2026-08-31 10:52 | DPAPI via .NET `ProtectedData` (CurrentUser + app entropy) rather than Electron `safeStorage`, so the headless CLI and the GUI share one format. **Plaintext passes over stdin, never argv** — command lines are world-readable. Verified round-trip including quotes/newlines. Credentials in one blob (DPAPI is ~200ms/call), sessions one file each. A vault that will not decrypt is renamed aside, never deleted. Migrates + deletes legacy plaintext files |
+| P1.6 | `switch/strategies.ts` | **DONE** | 2026-08-31 10:55 | S1 (proven), S2 (behind a flag, dead per EXP-2, falls through), S3 hooks, S4 assisted enrolment. Ordering is the safety property: refuse if a game runs -> confirm before closing League -> **verify the target session decrypts before touching anything** -> capture the current session -> only then stop/restore/relaunch. S4 signs out by writing a signed-out file rather than calling logout, which could revoke the token server-side |
+| P1.7 | `scripts/cli.ts` harness | **DONE** | 2026-08-31 10:55 | `status`/`list`/`capture`/`switch`/`enrol`/`health`/`vault`/`api-key`/`forget`. All output goes through the redactor. **GATE: a real switch ran — `switch accountone --yes` -> `Switched via S1 in 12.8s`, sign-in ~2.2s, session re-captured.** Only partially satisfies the written gate: it switched to the one enrolled account (a real capture -> kill -> restore -> relaunch -> verify cycle), not *between two*, because only one account exists. See morning verification |
 
 ## Phase 2 — Data layer
 
@@ -128,9 +128,12 @@ Only one task may be `DOING` at a time.
 3. **EXP-3's real test is one credential away.** The route is implemented (400, not 404). One
    attempt, hard rule 9 applies. If it works, headless enrolment becomes possible.
 
-4. **Multi-account switching is implemented but not proven.** Everything is verified against the
-   one enrolled account (round-trip against itself). Enrol a second account and run
-   `npm run cli -- switch <id>` to close this.
+4. **Multi-account switching is implemented but not proven.** `npm run cli -- switch` was run for
+   real and succeeded (S1, 12.8s), but against the single enrolled account — a genuine
+   capture -> kill -> restore -> relaunch -> verify cycle, not a cross-account one. To close this:
+   `npm run cli -- enrol <username>` for a second account, then `npm run cli -- switch <id>`.
+   The cross-account paths that stay unproven until then: capturing account A's session before
+   overwriting it with B's, and whether region follows across a region boundary (EXP-4).
 
 5. **Riot IDs for the other 3 test accounts** are still unknown — but no longer need to be typed
    in. `userInfo.preferred_username` + `riotID` from the Riot Client name the account
