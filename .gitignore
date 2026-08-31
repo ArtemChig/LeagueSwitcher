@@ -1,0 +1,47 @@
+# === Secrets — defence in depth ===
+# Runtime data lives in %APPDATA%\LeagueSwitcher and should never be in this tree at all.
+# These rules exist in case something is ever written locally by mistake.
+*.enc
+secrets*
+credentials*
+accounts.json
+sessions/
+vault/
+data/
+backups/
+*.key
+*.pem
+.env
+.env.*
+!.env.example
+
+# Riot artefacts that must never be committed
+RiotGamesPrivateSettings.yaml
+RiotClientSettings.yaml
+lockfile
+*.private.yaml
+
+# === Build ===
+node_modules/
+dist/
+out/
+release/
+build/
+.vite/
+*.tsbuildinfo
+
+# === Tooling ===
+coverage/
+.eslintcache
+*.log
+logs/
+scratch/
+tmp/
+
+# === OS / editor ===
+Thumbs.db
+desktop.ini
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

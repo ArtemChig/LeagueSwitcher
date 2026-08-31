@@ -1,0 +1,760 @@
+<title>LeagueSwitcher Interface Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+  :root{
+    --bg:#0A0D13;
+    --chrome:#10151E;
+    --surface:#151B26;
+    --surface-2:#1B2330;
+    --surface-3:#232C3B;
+    --ink:#E7ECF3;
+    --ink-2:#96A3B4;
+    --ink-3:#5D6B7C;
+    --rule:#212A37;
+    --rule-2:#2E3948;
+    --steel:#5B8CB8;
+
+    /* tier system — Riot official hues, lightened for legibility on dark */
+    --iron:#8A7F81;
+    --bronze:#C08160;
+    --silver:#A8BEC4;
+    --gold:#E8A945;
+    --platinum:#45C3E8;
+    --emerald:#2ECC5B;
+    --diamond:#7E9DF0;
+    --master:#BC72F0;
+    --grandmaster:#E56666;
+    --challenger:#F4C874;
+    --unranked:#8A8E95;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:Barlow,"Segoe UI",system-ui,sans-serif;
+    font-size:15px;line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    padding:clamp(.6rem,3vw,2rem);
+  }
+  .hud,.tier,.lp,h1,h2,h3{font-family:Rajdhani,"Segoe UI",sans-serif;}
+  .mono{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace;}
+
+  /* ============ window frame ============ */
+  .app{
+    max-width:1180px;margin:0 auto;
+    background:var(--bg);
+    border:1px solid var(--rule-2);
+    border-radius:10px;overflow:hidden;
+    box-shadow:0 30px 80px -20px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.02);
+  }
+  .titlebar{
+    background:var(--chrome);border-bottom:1px solid var(--rule);
+    display:flex;align-items:center;gap:.75rem;padding:.55rem .9rem;
+  }
+  .logo{
+    width:22px;height:22px;border-radius:5px;flex:none;
+    background:linear-gradient(140deg,#2E4C6D,#1B2E44);
+    border:1px solid #3C6389;display:grid;place-items:center;
+  }
+  .titlebar .name{font-family:Rajdhani,sans-serif;font-weight:700;font-size:.95rem;letter-spacing:.03em;}
+  .winbtns{margin-left:auto;display:flex;gap:.4rem;}
+  .winbtn{width:12px;height:12px;border-radius:50%;background:var(--surface-3);}
+  .winbtn.c{background:#3F2A2E;}
+
+  /* ============ toolbar ============ */
+  .toolbar{
+    display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;
+    padding:.8rem .95rem;background:var(--chrome);border-bottom:1px solid var(--rule);
+  }
+  .search{
+    flex:1 1 15rem;min-width:0;display:flex;align-items:center;gap:.5rem;
+    background:var(--surface);border:1px solid var(--rule-2);border-radius:6px;
+    padding:.42rem .7rem;color:var(--ink-3);font-size:.88rem;
+  }
+  .seg{display:flex;background:var(--surface);border:1px solid var(--rule-2);border-radius:6px;overflow:hidden;}
+  .seg button{
+    background:none;border:none;color:var(--ink-3);font-family:Barlow,sans-serif;
+    font-size:.8rem;font-weight:500;padding:.42rem .68rem;cursor:pointer;
+    border-right:1px solid var(--rule-2);
+  }
+  .seg button:last-child{border-right:none;}
+  .seg button[aria-pressed="true"]{background:var(--surface-3);color:var(--ink);}
+  .seg button:hover{color:var(--ink);}
+  .refresh{
+    font-size:.78rem;color:var(--ink-3);display:flex;align-items:center;gap:.4rem;
+    white-space:nowrap;
+  }
+  .pulse{width:6px;height:6px;border-radius:50%;background:var(--emerald);flex:none;}
+  .btn-add{
+    background:var(--surface-3);border:1px solid var(--rule-2);color:var(--ink);
+    font-family:Barlow,sans-serif;font-size:.82rem;font-weight:600;
+    padding:.45rem .8rem;border-radius:6px;cursor:pointer;white-space:nowrap;
+  }
+  .btn-add:hover{background:#2C3949;}
+
+  /* ============ active strip ============ */
+  .active-wrap{padding:.95rem .95rem 0;}
+  .active{
+    position:relative;overflow:hidden;
+    background:var(--surface);border:1px solid var(--rule-2);border-radius:9px;
+    padding:1rem 1.1rem;display:flex;align-items:center;gap:1.1rem;flex-wrap:wrap;
+  }
+  .active::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(105deg, color-mix(in srgb, var(--tier) 16%, transparent) 0%, transparent 52%);
+  }
+  .active > *{position:relative;}
+  .live-badge{
+    font-family:Rajdhani,sans-serif;font-size:.7rem;font-weight:700;letter-spacing:.14em;
+    color:var(--emerald);background:rgba(37,179,107,.12);border:1px solid rgba(37,179,107,.3);
+    padding:.18rem .45rem;border-radius:3px;
+  }
+
+  /* ============ grid ============ */
+  .grid{
+    display:grid;gap:.8rem;padding:.95rem;
+    grid-template-columns:repeat(auto-fill,minmax(255px,1fr));
+  }
+
+  /* ============ the card — rank is the hero ============ */
+  .card{
+    --tier:var(--unranked);
+    position:relative;overflow:hidden;text-align:left;
+    background:var(--surface);
+    border:1px solid var(--rule-2);
+    border-radius:9px;padding:0;cursor:pointer;
+    font:inherit;color:inherit;display:block;width:100%;
+    transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+  }
+  .card::after{
+    content:"";position:absolute;left:0;right:0;top:0;height:2px;
+    background:linear-gradient(90deg, var(--tier), color-mix(in srgb, var(--tier) 20%, transparent));
+  }
+  .card::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(115% 80% at 100% 0%, color-mix(in srgb, var(--tier) 15%, transparent) 0%, transparent 58%);
+  }
+  .card:hover{
+    transform:translateY(-2px);
+    border-color:color-mix(in srgb, var(--tier) 45%, var(--rule-2));
+    box-shadow:0 12px 30px -12px color-mix(in srgb, var(--tier) 40%, transparent);
+  }
+  .card:focus-visible{outline:2px solid var(--tier);outline-offset:2px;}
+
+  .card-body{position:relative;padding:1rem 1rem .95rem;}
+
+  /* ---- IDENTITY: the hero ---- */
+  .idrow{display:flex;align-items:center;gap:.7rem;}
+  .pfp{
+    width:46px;height:46px;border-radius:50%;flex:none;position:relative;
+    display:grid;place-items:center;
+    font-family:Rajdhani,sans-serif;font-weight:700;font-size:1.15rem;color:#0A0D13;
+    box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--tier);
+  }
+  .lvl{
+    position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);
+    background:var(--surface-3);border:1px solid var(--rule-2);border-radius:8px;
+    font-family:Rajdhani,sans-serif;font-size:.63rem;font-weight:700;color:var(--ink-2);
+    padding:0 .32rem;line-height:1.4;
+  }
+  .names{min-width:0;flex:1;}
+  .riotid{
+    font-family:Rajdhani,sans-serif;font-weight:700;font-size:1.35rem;line-height:1.12;
+    letter-spacing:.005em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .riotid .tag{color:var(--ink-3);font-weight:500;font-size:.82em;}
+  .login{
+    font-family:"JetBrains Mono",monospace;font-size:.7rem;color:var(--ink-3);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.2rem;
+  }
+
+  /* ---- RANK: compact secondary line ---- */
+  .rank-row{
+    display:flex;align-items:center;gap:.45rem;
+    margin-top:.85rem;padding-top:.7rem;border-top:1px solid var(--rule);
+  }
+  .crest{width:20px;height:20px;flex:none;}
+  .tier{
+    font-size:.92rem;font-weight:700;line-height:1;letter-spacing:.03em;
+    color:var(--tier);text-transform:uppercase;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .lp{
+    font-size:.8rem;font-weight:600;color:var(--ink-3);
+    font-variant-numeric:tabular-nums;letter-spacing:.01em;white-space:nowrap;
+  }
+  .lp b{color:var(--ink-2);font-weight:700;}
+
+  /* meta */
+  .meta{display:flex;align-items:center;gap:.5rem;margin-top:.6rem;}
+  .region{
+    font-family:Rajdhani,sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.1em;
+    color:var(--ink-3);background:var(--surface-2);border:1px solid var(--rule-2);
+    padding:.1rem .38rem;border-radius:3px;flex:none;
+  }
+  .wl{font-size:.74rem;color:var(--ink-3);font-variant-numeric:tabular-nums;}
+  .wl b{color:var(--ink-2);}
+  .bar{height:3px;border-radius:2px;background:var(--surface-3);margin-top:.45rem;overflow:hidden;}
+  .bar span{display:block;height:100%;background:var(--tier);border-radius:2px;}
+
+  .health{
+    position:absolute;top:.75rem;right:.85rem;width:7px;height:7px;border-radius:50%;
+    background:var(--emerald);box-shadow:0 0 0 3px color-mix(in srgb,var(--emerald) 18%,transparent);
+  }
+  .health.stale{background:#D9A441;box-shadow:0 0 0 3px rgba(217,164,65,.18);}
+
+  .cardbar{
+    display:flex;gap:.4rem;margin-top:.8rem;padding-top:.7rem;border-top:1px solid var(--rule);
+  }
+  .cbtn{
+    font-family:Rajdhani,sans-serif;font-weight:700;font-size:.78rem;letter-spacing:.09em;
+    text-transform:uppercase;padding:.4rem .7rem;border-radius:5px;cursor:pointer;
+    border:1px solid var(--rule-2);background:var(--surface-2);color:var(--ink-3);
+    transition:background .14s,color .14s;
+  }
+  .cbtn:hover{background:var(--surface-3);color:var(--ink);}
+  .cbtn.go{flex:1;background:var(--tier);border-color:transparent;color:#0A0D13;}
+  .cbtn.go:hover{filter:brightness(1.12);background:var(--tier);color:#0A0D13;}
+  .cbtn:focus-visible{outline:2px solid var(--tier);outline-offset:2px;}
+
+  /* add tile */
+  .addcard{
+    border:1px dashed var(--rule-2);border-radius:9px;background:transparent;
+    display:grid;place-items:center;gap:.35rem;min-height:190px;cursor:pointer;
+    color:var(--ink-3);font-family:Rajdhani,sans-serif;font-weight:600;font-size:.9rem;
+    letter-spacing:.06em;text-transform:uppercase;transition:.16s;
+  }
+  .addcard:hover{border-color:var(--steel);color:var(--steel);background:rgba(91,140,184,.05);}
+
+  /* ============ detail slide-over ============ */
+  .panel-scrim{
+    position:fixed;inset:0;background:rgba(5,7,11,.6);backdrop-filter:blur(2px);
+    display:none;z-index:40;
+  }
+  .panel-scrim[data-open="true"]{display:block;}
+  .panel{
+    position:fixed;top:0;right:0;bottom:0;width:min(430px,100%);z-index:41;
+    background:var(--chrome);border-left:1px solid var(--rule-2);
+    transform:translateX(100%);transition:transform .22s cubic-bezier(.4,0,.2,1);
+    overflow-y:auto;display:flex;flex-direction:column;
+  }
+  .panel[data-open="true"]{transform:translateX(0);}
+  .panel-head{
+    position:relative;overflow:hidden;padding:1.2rem 1.2rem 1.1rem;
+    border-bottom:1px solid var(--rule);
+  }
+  .panel-head::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(160deg,color-mix(in srgb,var(--tier) 20%,transparent),transparent 62%);
+  }
+  .panel-head > *{position:relative;}
+  .pclose{
+    position:absolute;top:.9rem;right:.9rem;z-index:2;
+    background:var(--surface-2);border:1px solid var(--rule-2);color:var(--ink-2);
+    width:26px;height:26px;border-radius:5px;cursor:pointer;display:grid;place-items:center;
+    font-size:1rem;line-height:1;padding:0;
+  }
+  .pclose:hover{background:var(--surface-3);color:var(--ink);}
+  .psect{padding:1.1rem 1.2rem;border-bottom:1px solid var(--rule);}
+  .psect:last-child{border-bottom:none;}
+  .plabel{
+    font-family:Rajdhani,sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.15em;
+    text-transform:uppercase;color:var(--ink-3);margin:0 0 .7rem;
+  }
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:.55rem;}
+  .stat{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:.55rem .7rem;}
+  .stat .k{font-size:.68rem;color:var(--ink-3);letter-spacing:.05em;text-transform:uppercase;
+    font-family:Rajdhani,sans-serif;font-weight:600;}
+  .stat .v{font-family:Rajdhani,sans-serif;font-weight:700;font-size:1.02rem;color:var(--ink);
+    font-variant-numeric:tabular-nums;line-height:1.25;margin-top:.1rem;}
+  .links{display:flex;gap:.45rem;flex-wrap:wrap;}
+  .link{
+    background:var(--surface);border:1px solid var(--rule-2);border-radius:5px;
+    padding:.38rem .65rem;font-size:.8rem;font-weight:500;color:var(--ink-2);
+    text-decoration:none;display:inline-flex;align-items:center;gap:.35rem;
+  }
+  .link:hover{background:var(--surface-3);color:var(--ink);border-color:var(--steel);}
+  .field{margin-bottom:.65rem;}
+  .field label{
+    display:block;font-size:.72rem;color:var(--ink-3);margin-bottom:.25rem;
+    font-family:Rajdhani,sans-serif;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  }
+  .field .inwrap{display:flex;gap:.4rem;}
+  .field input{
+    flex:1;min-width:0;background:var(--surface);border:1px solid var(--rule-2);border-radius:5px;
+    padding:.45rem .6rem;color:var(--ink);font-family:"JetBrains Mono",monospace;font-size:.82rem;
+  }
+  .field input:focus{outline:none;border-color:var(--steel);box-shadow:0 0 0 2px rgba(91,140,184,.18);}
+  .reveal{
+    background:var(--surface-2);border:1px solid var(--rule-2);border-radius:5px;color:var(--ink-3);
+    padding:0 .55rem;cursor:pointer;font-size:.72rem;font-family:Barlow,sans-serif;font-weight:600;
+  }
+  .reveal:hover{color:var(--ink);background:var(--surface-3);}
+  .hint{font-size:.75rem;color:var(--ink-3);margin:.5rem 0 0;line-height:1.45;}
+  .pactions{display:flex;gap:.5rem;flex-wrap:wrap;}
+  .pbtn{
+    font-family:Barlow,sans-serif;font-size:.84rem;font-weight:600;padding:.5rem .9rem;
+    border-radius:6px;cursor:pointer;border:1px solid var(--rule-2);
+    background:var(--surface-2);color:var(--ink-2);
+  }
+  .pbtn:hover{background:var(--surface-3);color:var(--ink);}
+  .pbtn.primary{background:var(--tier);border-color:transparent;color:#0A0D13;font-weight:700;flex:1;}
+  .pbtn.primary:hover{filter:brightness(1.1);}
+  .pbtn.danger{color:#E08582;border-color:rgba(224,133,130,.3);}
+  .pbtn.danger:hover{background:rgba(224,133,130,.1);color:#E08582;}
+
+  /* ============ modal ============ */
+  .scrim{
+    position:fixed;inset:0;background:rgba(5,7,11,.72);backdrop-filter:blur(3px);
+    display:none;place-items:center;padding:1.2rem;z-index:50;
+  }
+  .scrim[data-open="true"]{display:grid;}
+  .modal{
+    width:min(430px,100%);background:var(--surface);border:1px solid var(--rule-2);
+    border-radius:10px;padding:1.4rem;box-shadow:0 30px 70px -15px rgba(0,0,0,.9);
+  }
+  .modal h3{font-size:1.15rem;font-weight:700;margin:0 0 .55rem;}
+  .modal p{font-size:.9rem;color:var(--ink-2);margin:0 0 .8rem;}
+  .warnbox{
+    background:rgba(217,164,65,.08);border:1px solid rgba(217,164,65,.28);
+    border-radius:6px;padding:.7rem .85rem;font-size:.85rem;color:#E4BC72;margin-bottom:1rem;
+  }
+  .steps{list-style:none;padding:0;margin:0 0 1.2rem;font-size:.85rem;color:var(--ink-2);}
+  .steps li{display:flex;gap:.55rem;padding:.22rem 0;}
+  .steps .n{
+    font-family:"JetBrains Mono",monospace;font-size:.7rem;color:var(--ink-3);
+    width:1.1rem;flex:none;padding-top:.12rem;
+  }
+  .mbtns{display:flex;gap:.55rem;justify-content:flex-end;}
+  .mbtn{
+    font-family:Barlow,sans-serif;font-size:.85rem;font-weight:600;padding:.5rem .95rem;
+    border-radius:6px;cursor:pointer;border:1px solid var(--rule-2);
+    background:var(--surface-2);color:var(--ink-2);
+  }
+  .mbtn:hover{background:var(--surface-3);color:var(--ink);}
+  .mbtn.go{background:var(--tier,#5B8CB8);border-color:transparent;color:#0A0D13;}
+  .mbtn.go:hover{filter:brightness(1.1);}
+
+  /* ============ notes below ============ */
+  .notes{max-width:1180px;margin:1.6rem auto 0;padding:0 .2rem;}
+  .notes h2{
+    font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-3);margin:0 0 .7rem;font-family:Rajdhani,sans-serif;
+  }
+  .palette{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1.4rem;}
+  .sw{
+    display:flex;align-items:center;gap:.4rem;background:var(--surface);
+    border:1px solid var(--rule);border-radius:5px;padding:.3rem .55rem .3rem .4rem;
+    font-family:Rajdhani,sans-serif;font-size:.74rem;font-weight:600;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--ink-2);
+  }
+  .sw svg{display:block;flex:none;}
+  .notegrid{display:grid;gap:.7rem;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));}
+  .note{
+    background:var(--surface);border:1px solid var(--rule);border-left:2px solid var(--steel);
+    border-radius:0 6px 6px 0;padding:.7rem .85rem;font-size:.83rem;color:var(--ink-2);
+  }
+  .note b{color:var(--ink);font-weight:600;display:block;margin-bottom:.15rem;
+    font-family:Rajdhani,sans-serif;font-size:.92rem;letter-spacing:.02em;}
+  .note.warn{border-left-color:#D9A441;}
+
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important;animation:none!important;}
+  }
+</style>
+
+<div class="app">
+
+  <!-- ===== title bar ===== -->
+  <div class="titlebar">
+    <div class="logo">
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+        <path d="M1 3h6M1 3l2-2M1 3l2 2M11 9H5M11 9l-2-2M11 9l-2 2" fill="none" stroke="#8FB6D9" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <span class="name">LeagueSwitcher</span>
+    <div class="winbtns"><i class="winbtn"></i><i class="winbtn"></i><i class="winbtn c"></i></div>
+  </div>
+
+  <!-- ===== toolbar ===== -->
+  <div class="toolbar">
+    <div class="search">
+      <svg width="13" height="13" viewBox="0 0 14 14" aria-hidden="true"><circle cx="6" cy="6" r="4.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M9.2 9.2 12.5 12.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      Search accounts
+    </div>
+    <div class="seg" role="group" aria-label="Sort by">
+      <button aria-pressed="true">Rank</button>
+      <button aria-pressed="false">Name</button>
+      <button aria-pressed="false">Recent</button>
+    </div>
+    <div class="seg" role="group" aria-label="Filter region">
+      <button aria-pressed="true">All</button>
+      <button aria-pressed="false">NA</button>
+      <button aria-pressed="false">LAN</button>
+    </div>
+    <span class="refresh"><i class="pulse"></i> Updated 2m ago</span>
+    <button class="btn-add">+ Add account</button>
+  </div>
+
+  <!-- ===== active account ===== -->
+  <div class="active-wrap">
+    <div class="active" style="--tier:var(--bronze)">
+      <svg viewBox="0 0 20 20" aria-hidden="true" style="width:30px;height:30px;flex:none">
+        <use href="#crest-bronze"/>
+      </svg>
+      <div style="min-width:0">
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.15rem;flex-wrap:wrap">
+          <span class="live-badge">SIGNED IN</span>
+          <span style="font-size:.74rem;color:var(--ink-3)">Riot Client running</span>
+        </div>
+        <div class="riotid" style="font-size:1.2rem">SUMMONER ONE<span class="tag">#TAG1</span></div>
+        <div class="lp" style="margin-top:.2rem">
+          <span style="color:var(--bronze);font-weight:700">BRONZE I</span> &middot; <b>5</b> LP &middot; 13W 10L &middot; Level 33 &middot; NA
+        </div>
+      </div>
+      <button class="btn-add" style="margin-left:auto">Refresh data</button>
+    </div>
+  </div>
+
+  <!-- ===== grid ===== -->
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- ===== account detail slide-over ===== -->
+<div class="panel-scrim" id="pscrim"></div>
+<aside class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="ptitle">
+  <div class="panel-head" id="phead">
+    <button class="pclose" id="pclose" aria-label="Close">&times;</button>
+    <div class="idrow">
+      <div class="pfp" id="ppfp"></div>
+      <div class="names">
+        <div class="riotid" id="ptitle">&mdash;</div>
+        <div class="login" id="plogin">&mdash;</div>
+      </div>
+    </div>
+    <div class="rank-row" id="prank"></div>
+  </div>
+
+  <div class="psect">
+    <p class="plabel">Account data</p>
+    <div class="stats" id="pstats"></div>
+  </div>
+
+  <div class="psect">
+    <p class="plabel">Look up</p>
+    <div class="links">
+      <a class="link" id="lk-opgg" href="#" target="_blank" rel="noopener">op.gg</a>
+      <a class="link" id="lk-ugg" href="#" target="_blank" rel="noopener">u.gg</a>
+      <a class="link" id="lk-deeplol" href="#" target="_blank" rel="noopener">DeepLoL</a>
+    </div>
+  </div>
+
+  <div class="psect">
+    <p class="plabel">Credentials</p>
+    <div class="field">
+      <label for="f-user">Login username</label>
+      <div class="inwrap"><input id="f-user" type="text" spellcheck="false" autocomplete="off"></div>
+    </div>
+    <div class="field">
+      <label for="f-pass">Password</label>
+      <div class="inwrap">
+        <input id="f-pass" type="password" value="............" autocomplete="off">
+        <button class="reveal" id="f-reveal" type="button">Show</button>
+      </div>
+    </div>
+    <div class="pactions" style="margin-top:.8rem">
+      <button class="pbtn" id="f-save">Save credentials</button>
+    </div>
+    <p class="hint">
+      Changing the password here updates the stored copy only. The saved session keeps working &mdash;
+      but if Riot invalidated it when you changed the password, use <b>Re-enrol</b> below.
+    </p>
+  </div>
+
+  <div class="psect">
+    <p class="plabel">Actions</p>
+    <div class="pactions">
+      <button class="pbtn primary" id="p-switch">Switch to this account</button>
+    </div>
+    <div class="pactions" style="margin-top:.5rem">
+      <button class="pbtn" id="p-reenrol">Re-enrol session</button>
+      <button class="pbtn danger" id="p-delete">Delete</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ===== confirm modal ===== -->
+<div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-labelledby="mtitle">
+  <div class="modal" id="modal">
+    <h3 id="mtitle">Switch to <span id="mname">—</span>?</h3>
+    <div class="warnbox" id="mwarn">
+      <strong>Your League client is open.</strong> Signing out of
+      <span id="mcurrent">SUMMONER ONE</span> will close it.
+    </div>
+    <p style="font-size:.82rem;color:var(--ink-3);margin-bottom:.5rem">What happens next:</p>
+    <ul class="steps">
+      <li><span class="n">01</span><span>Close League and Riot Client</span></li>
+      <li><span class="n">02</span><span>Restore the saved session for this account</span></li>
+      <li><span class="n">03</span><span>Relaunch Riot Client &mdash; signed in automatically</span></li>
+      <li><span class="n">04</span><span>League is <em>not</em> launched &mdash; start it yourself</span></li>
+    </ul>
+    <div class="mbtns">
+      <button class="mbtn" id="cancel">Cancel</button>
+      <button class="mbtn go" id="confirm">Switch account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== notes ===== -->
+<div class="notes">
+  <h2>Official Riot rank crests &mdash; drives each card's accent</h2>
+  <div class="palette" id="palette"></div>
+
+  <h2>Notes for review</h2>
+  <div class="notegrid">
+    <div class="note warn">
+      <b>Sample ranks</b>
+      Only SUMMONER ONE is real data pulled from your client. The other four show invented ranks
+      so you can see the tier system &mdash; real values land on first fetch.
+    </div>
+    <div class="note">
+      <b>Real Riot crests</b>
+      Rank crests are Riot's own mini-crest SVGs pulled from Community Dragon, with their official tier colours. Profile icons are still placeholders — the sandbox blocks remote images; the app fetches them from Data Dragon and caches to disk.
+    </div>
+    <div class="note">
+      <b>Try it</b>
+      <b>Switch</b> goes straight to the confirmation. <b>Details</b> (or clicking the card) opens the side panel with full stats, op.gg links, and editable username/password for when you rotate a password.
+    </div>
+    <div class="note">
+      <b>Username leads, rank tints</b>
+      The Riot ID is the largest thing on the card. Rank is a single compact line underneath &mdash;
+      but tier colour still drives the border, top stripe, hover glow, avatar ring and win-rate bar,
+      so the grid still reads by rank at a glance without rank taking the space.
+    </div>
+  </div>
+</div>
+
+<!-- official Riot rank crests (Community Dragon, embedded) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="crest-iron" viewBox="0 0 17 12" preserveAspectRatio="xMidYMid meet"><path fill-rule="evenodd" clip-rule="evenodd" d="M5.09169 7.28713C5.09174 6.7095 5.22139 6.1391 5.47128 5.61712C5.72117 5.09514 6.08505 4.63461 6.53664 4.26881C4.61235 3.59731 1.81243 2.25945 0.999109 0C0.999109 0 0.826062 2.28858 2.21044 4.84952C2.21044 4.84952 3.68308 5.80538 4.27144 7.09356L3.1276 6.39465C3.41666 7.3131 3.77114 8.21011 4.18838 9.07893C4.85288 10.3448 6.09191 11.3058 6.09191 11.3058C6.09191 11.3058 5.51566 9.59283 6.19054 10.004C6.21382 10.0176 6.23635 10.0325 6.25803 10.0485C5.88788 9.68626 5.59403 9.2549 5.39352 8.77942C5.19302 8.30395 5.08983 7.7938 5.08996 7.27856L5.09169 7.28713ZM11.5123 4.25168C11.9343 4.58914 12.2812 5.00928 12.5314 5.48574C12.7816 5.96221 12.9296 6.48472 12.9662 7.02049C13.0028 7.55626 12.9271 8.09373 12.7439 8.59918C12.5607 9.10462 12.2739 9.56714 11.9016 9.9577C12.4017 9.80182 11.9016 11.3076 11.9016 11.3076C11.9016 11.3076 13.1407 10.3431 13.8052 9.08064C14.2203 8.21155 14.5731 7.31457 14.8608 6.39636L13.7256 7.08157C14.3243 5.80195 15.7831 4.84952 15.7831 4.84952C17.1588 2.28858 16.9944 0 16.9944 0C16.1932 2.2389 13.4348 3.57333 11.5123 4.25168ZM11.7269 7.28712C11.7269 8.75826 10.5221 9.95084 9.03598 9.95084C7.54984 9.95084 6.34509 8.75826 6.34509 7.28712C6.34509 5.81599 7.54984 4.6234 9.03598 4.6234C10.5221 4.6234 11.7269 5.81599 11.7269 7.28712Z" fill="#51484A"/></symbol>
+<symbol id="crest-bronze" viewBox="0 0 18 12" preserveAspectRatio="xMidYMid meet"><path fill-rule="evenodd" clip-rule="evenodd" d="M5.09125 7.28713C5.09142 6.70952 5.22111 6.13916 5.47096 5.6172C5.72081 5.09523 6.08459 4.63469 6.53604 4.26881C4.61196 3.59731 1.81235 2.25945 0.999109 0C0.999109 0 0.82608 2.28858 2.21031 4.84952C2.21031 4.84952 3.68279 5.80538 4.27109 7.09356L3.12737 6.39465C3.41639 7.3131 3.77084 8.21011 4.18804 9.07893C4.85247 10.3466 6.09136 11.3058 6.09136 11.3058C6.09136 11.3058 5.51517 9.59283 6.19171 10.004L6.25746 10.0485C5.88735 9.68626 5.59353 9.2549 5.39305 8.77942C5.19256 8.30395 5.08939 7.7938 5.08952 7.27856L5.09125 7.28713ZM11.5126 4.25168C11.9705 4.6172 12.3399 5.07953 12.5938 5.60477C12.8476 6.13001 12.9796 6.70484 12.9799 7.28713C12.9791 7.63908 12.9308 7.98935 12.8363 8.32863C12.6632 8.93912 12.3418 9.4984 11.9002 9.9577C12.4003 9.80182 11.9002 11.3076 11.9002 11.3076C11.9002 11.3076 13.1374 10.3448 13.8035 9.08064C14.2211 8.21257 14.5755 7.3161 14.8642 6.39808L13.7291 7.08328C14.3226 5.80195 15.783 4.84952 15.783 4.84952C17.1672 2.28858 16.9942 0 16.9942 0C16.1931 2.2389 13.4332 3.57333 11.5126 4.25168ZM11.7254 7.28712C11.7254 8.75826 10.5208 9.95084 9.03485 9.95084C7.54887 9.95084 6.34424 8.75826 6.34424 7.28712C6.34424 5.81599 7.54887 4.6234 9.03485 4.6234C10.5208 4.6234 11.7254 5.81599 11.7254 7.28712Z" fill="#8C513A"/></symbol>
+<symbol id="crest-silver" viewBox="0 0 18 12" preserveAspectRatio="xMidYMid meet"><path fill-rule="evenodd" clip-rule="evenodd" d="M5.09125 7.28713C5.09142 6.70952 5.22111 6.13916 5.47096 5.6172C5.72081 5.09523 6.08459 4.63469 6.53604 4.26881C4.61196 3.59731 1.81235 2.25945 0.999109 0C0.999109 0 0.82608 2.28858 2.21031 4.84952C2.21031 4.84952 3.68279 5.80538 4.27109 7.09356L3.12737 6.39465C3.41639 7.3131 3.77084 8.21011 4.18804 9.07893C4.85247 10.3466 6.09136 11.3058 6.09136 11.3058C6.09136 11.3058 5.51517 9.59283 6.19171 10.004L6.25746 10.0485C5.88735 9.68626 5.59353 9.2549 5.39305 8.77942C5.19256 8.30395 5.08939 7.7938 5.08952 7.27856L5.09125 7.28713ZM11.5126 4.25168C11.9702 4.61729 12.3394 5.07968 12.593 5.60493C12.8466 6.13017 12.9782 6.70496 12.9782 7.28713C12.978 7.639 12.9303 7.98927 12.8363 8.32863C12.6632 8.93912 12.3418 9.4984 11.9002 9.9577C12.4003 9.80182 11.9002 11.3076 11.9002 11.3076C11.9002 11.3076 13.1374 10.3448 13.8035 9.08064C14.2211 8.21257 14.5755 7.3161 14.8642 6.39808L13.7291 7.08328C14.3226 5.80195 15.783 4.84952 15.783 4.84952C17.1672 2.28858 16.9942 0 16.9942 0C16.1931 2.2389 13.4332 3.57333 11.5126 4.25168ZM11.7255 7.28712C11.7255 8.75826 10.5208 9.95084 9.03485 9.95084C7.54887 9.95084 6.34425 8.75826 6.34425 7.28712C6.34425 5.81599 7.54887 4.6234 9.03485 4.6234C10.5208 4.6234 11.7255 5.81599 11.7255 7.28712Z" fill="#80989D"/></symbol>
+<symbol id="crest-gold" viewBox="0 0 17 13" preserveAspectRatio="xMidYMid meet"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.7388 4.77729C11.2994 5.45163 11.6066 6.31003 11.6048 7.1971C11.6032 7.8058 11.457 8.40488 11.179 8.94233C10.901 9.47977 10.4996 9.93932 10.0096 10.2811C9.89852 10.3595 9.78284 10.4308 9.66325 10.4947C9.42458 10.8456 9.25671 11.2421 9.16955 11.6607C9.08239 12.0794 9.07771 12.5118 9.15578 12.9323C9.30127 11.8586 10.8271 10.4502 11.5078 10.0923C12.1885 9.73442 11.5078 11.4082 11.5078 11.4082C11.5078 11.4082 12.7773 10.5286 13.51 9.30352C13.9738 8.45975 14.3789 7.5833 14.7224 6.68073L13.4649 7.35379C13.7698 5.93645 15.2645 4.72209 15.2645 4.72209C15.8863 3.23542 16.1249 1.60908 15.9573 0C15.3511 2.46254 12.4188 4.04903 10.7388 4.77729ZM4.40497 7.26298C4.40347 6.37598 4.71064 5.51767 5.27096 4.84318C3.59441 4.11492 0.660441 2.5213 0.0559813 0.0658875C-0.111632 1.67555 0.126966 3.30246 0.748772 4.78976C0.748772 4.78976 2.22788 6.00233 2.53271 7.41967L1.27356 6.7484C1.61959 7.65073 2.02764 8.52661 2.4946 9.36941C3.22723 10.5944 4.5037 11.474 4.5037 11.474C4.5037 11.474 3.81091 9.79318 4.5037 10.16C5.19649 10.5268 6.69984 11.9299 6.84533 12.9982C6.9234 12.5777 6.91872 12.1453 6.83156 11.7266C6.7444 11.3079 6.57653 10.9115 6.33786 10.5606C6.21864 10.4954 6.103 10.4235 5.99147 10.3452C5.50334 10.0026 5.10377 9.54289 4.82733 9.00584C4.5509 8.4688 4.40593 7.87059 4.40497 7.26298ZM8.03695 9.81098C9.40576 9.81098 10.5154 8.6702 10.5154 7.26297C10.5154 5.85575 9.40576 4.71497 8.03695 4.71497C6.66813 4.71497 5.55849 5.85575 5.55849 7.26297C5.55849 8.6702 6.66813 9.81098 8.03695 9.81098Z" fill="#CD8837"/></symbol>
+<symbol id="crest-platinum" viewBox="0 0 20 20" preserveAspectRatio="xMidYMid meet"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.7382 7.77729C13.2988 8.45163 13.606 9.31003 13.6042 10.1971C13.6026 10.8058 13.4564 11.4049 13.1784 11.9423C12.9005 12.4798 12.4991 12.9393 12.0091 13.2811C11.898 13.3595 11.7823 13.4308 11.6627 13.4947C11.424 13.8456 11.2561 14.2421 11.169 14.6607C11.0818 15.0794 11.0771 15.5118 11.1552 15.9323C11.3007 14.8586 12.8266 13.4502 13.5072 13.0923C14.1879 12.7344 13.5072 14.4082 13.5072 14.4082C13.5072 14.4082 14.7768 13.5286 15.5094 12.3035C15.9732 11.4598 16.3784 10.5833 16.7218 9.68073L15.4644 10.3538C15.7692 8.93645 17.2639 7.72209 17.2639 7.72209C17.8857 6.23542 18.1243 4.60908 17.9567 3C17.3505 5.46254 14.4183 7.04903 12.7382 7.77729ZM6.40441 10.263C6.40291 9.37598 6.71007 8.51767 7.2704 7.84318C5.59385 7.11492 2.65988 5.5213 2.05542 3.06589C1.8878 4.67555 2.1264 6.30246 2.74821 7.78976C2.74821 7.78976 4.22732 9.00233 4.53214 10.4197L3.273 9.7484C3.61903 10.6507 4.02708 11.5266 4.49404 12.3694C5.22667 13.5944 6.50313 14.474 6.50313 14.474C6.50313 14.474 5.81034 12.7932 6.50313 13.16C7.19592 13.5268 8.69928 14.9299 8.84477 15.9982C8.92284 15.5777 8.91816 15.1453 8.831 14.7266C8.74384 14.3079 8.57597 13.9115 8.3373 13.5606C8.21807 13.4954 8.10243 13.4235 7.9909 13.3452C7.50277 13.0026 7.1032 12.5429 6.82677 12.0058C6.55034 11.4688 6.40537 10.8706 6.40441 10.263ZM10.0364 12.811C11.4052 12.811 12.5148 11.6702 12.5148 10.263C12.5148 8.85575 11.4052 7.71497 10.0364 7.71497C8.66757 7.71497 7.55792 8.85575 7.55792 10.263C7.55792 11.6702 8.66757 12.811 10.0364 12.811Z" fill="#25ACD6"/></symbol>
+<symbol id="crest-emerald" viewBox="0 0 20 20" preserveAspectRatio="xMidYMid meet"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.28209 7.77729C6.7215 8.45163 6.41429 9.31003 6.4161 10.1971C6.41774 10.8058 6.5639 11.4049 6.84189 11.9423C7.11988 12.4798 7.52129 12.9393 8.01126 13.2811C8.12238 13.3595 8.23806 13.4308 8.35765 13.4947C8.59632 13.8456 8.76419 14.2421 8.85135 14.6607C8.93851 15.0794 8.94319 15.5118 8.86512 15.9323C8.71963 14.8586 7.19376 13.4502 6.51309 13.0923C5.83243 12.7344 6.51309 14.4082 6.51309 14.4082C6.51309 14.4082 5.3646 13.5605 4.33093 11.9941C4.31699 11.973 4.30313 11.9519 4.28935 11.931C3.62867 10.9293 3.1492 10.2023 2.13162 9.92188C3.11722 9.58748 4.55596 10.3538 4.55596 10.3538C4.25113 8.93645 2.75644 7.72209 2.75644 7.72209C2.13463 6.23542 1.89602 4.60908 2.06365 3C2.66984 5.46254 5.60208 7.04903 7.28209 7.77729ZM13.6042 10.1971C13.606 9.31003 13.2988 8.45163 12.7382 7.77729C14.4183 7.04903 17.3505 5.46254 17.9567 3C18.1243 4.60908 17.8857 6.23542 17.2639 7.72209C17.2639 7.72209 15.7692 8.93645 15.4644 10.3538C15.4644 10.3538 16.9031 9.58748 17.8887 9.92188C16.8711 10.2023 16.3917 10.9293 15.731 11.931L15.6894 11.9941C14.6557 13.5605 13.5072 14.4082 13.5072 14.4082C13.5072 14.4082 14.1879 12.7344 13.5072 13.0923C12.8266 13.4502 11.3007 14.8586 11.1552 15.9323C11.0771 15.5118 11.0818 15.0794 11.169 14.6607C11.2561 14.2421 11.424 13.8456 11.6627 13.4947C11.7823 13.4308 11.898 13.3595 12.0091 13.2811C12.4991 12.9393 12.9005 12.4798 13.1785 11.9423C13.4564 11.4049 13.6026 10.8058 13.6042 10.1971ZM10.0364 12.811C11.4052 12.811 12.5149 11.6702 12.5149 10.263C12.5149 8.85575 11.4052 7.71497 10.0364 7.71497C8.66758 7.71497 7.55794 8.85575 7.55794 10.263C7.55794 11.6702 8.66758 12.811 10.0364 12.811Z" fill="#149C3A"/></symbol>
+<symbol id="crest-diamond" viewBox="0 0 20 20" preserveAspectRatio="xMidYMid meet"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.26501 7.77728C6.70441 8.45162 6.39721 9.31003 6.39902 10.1971C6.40066 10.8058 6.54682 11.4049 6.8248 11.9423C7.10279 12.4798 7.5042 12.9393 7.99417 13.2811C8.10529 13.3595 8.22097 13.4308 8.34056 13.4947C8.57923 13.8456 8.74711 14.2421 8.83427 14.6607C8.92142 15.0794 8.92611 15.5118 8.84803 15.9323C8.70255 14.8586 7.17668 13.4502 6.49601 13.0923C5.81534 12.7344 6.49601 14.4082 6.49601 14.4082C4.85133 13.4099 4.53293 12.4616 4.21748 11.5221C3.98661 10.8345 3.75732 10.1516 3.01078 9.45731C4.15628 9.79612 4.53888 10.3538 4.53888 10.3538C4.39221 8.54614 2.51869 7.99745 2.51869 7.99745C2.27947 7.16721 2.14678 6.49021 2.0302 5.89533C1.81547 4.79969 1.65534 3.98265 0.984772 3C4.28701 3.89704 5.63879 5.52611 7.26501 7.77728ZM13.6043 10.1971C13.6061 9.31003 13.2989 8.45163 12.7383 7.77729C14.3645 5.52612 15.7163 3.89704 19.0185 3.00001C18.3479 3.98265 18.1878 4.7997 17.9731 5.89534C17.8565 6.49021 17.7238 7.16722 17.4846 7.99745C17.4846 7.99745 15.6111 8.54615 15.4644 10.3538C15.4644 10.3538 15.847 9.79612 16.9925 9.45731C16.2459 10.1516 16.0167 10.8345 15.7858 11.5221C15.4703 12.4616 15.1519 13.4099 13.5073 14.4082C13.5073 14.4082 14.1879 12.7344 13.5073 13.0923C12.8266 13.4502 11.3007 14.8586 11.1552 15.9323C11.0772 15.5118 11.0818 15.0794 11.169 14.6607C11.2562 14.2421 11.424 13.8456 11.6627 13.4947C11.7823 13.4308 11.898 13.3595 12.0091 13.2811C12.4991 12.9393 12.9005 12.4798 13.1785 11.9423C13.4565 11.4049 13.6026 10.8058 13.6043 10.1971ZM10.0364 12.811C11.4052 12.811 12.5149 11.6702 12.5149 10.263C12.5149 8.85575 11.4052 7.71497 10.0364 7.71497C8.66759 7.71497 7.55795 8.85575 7.55795 10.263C7.55795 11.6702 8.66759 12.811 10.0364 12.811Z" fill="#4C6FD9"/></symbol>
+<symbol id="crest-master" viewBox="0 0 17 15" preserveAspectRatio="xMidYMid meet"><path d="M7.61488 15C7.90271 14.2471 8.14287 13.4744 8.33375 12.6872C7.75357 12.5611 7.21753 12.2657 6.78526 11.8339C6.353 11.402 6.04145 10.8506 5.88528 10.2411C5.72911 9.63153 5.73445 8.98768 5.90068 8.38116C6.06692 7.77464 6.38755 7.22924 6.82689 6.80561C5.56024 5.40575 3.3708 2.56363 3.76479 0C3.76479 0 2.61564 1.82958 2.60009 4.64589C2.60009 4.64589 3.26884 5.95906 3.29131 7.23903C2.37026 6.36297 1.39045 5.10697 1.36799 3.73478C1.36799 3.73478 1.32479 3.84913 1.26776 4.05201L1.1347 4.63667C1.05957 5.0581 1.01967 5.48582 1.01547 5.91479C0.99224 6.36754 0.99224 6.82132 1.01547 7.27407C1.07101 8.50634 1.35406 9.71476 1.84839 10.83C1.84839 10.83 2.08167 10.8816 2.45148 10.9867C3.41745 11.2486 4.76188 11.7245 5.82808 12.4825L5.92658 12.5544C6.75777 13.1501 7.41616 13.9137 7.5233 14.8672" fill="#A4584E"/>
+<path d="M11.1591 9.33981C11.1594 8.8783 11.0315 8.42704 10.7915 8.04312C10.5515 7.6592 10.2102 7.35988 9.81083 7.18301C9.41142 7.00614 8.97184 6.95967 8.54769 7.04949C8.12354 7.1393 7.73387 7.36136 7.42798 7.68758C7.12209 8.01379 6.91373 8.4295 6.82924 8.88213C6.74475 9.33475 6.78794 9.80395 6.95334 10.2304C7.11874 10.6568 7.39893 11.0213 7.75845 11.2777C8.11797 11.5342 8.54067 11.6711 8.97309 11.6711C9.55241 11.6706 10.1079 11.4249 10.5177 10.9878C10.9275 10.5508 11.1582 9.95812 11.1591 9.33981Z" fill="#9D48E0"/>
+<path d="M10.3849 15C10.0971 14.2471 9.8569 13.4744 9.66602 12.6872C10.2462 12.5611 10.7822 12.2657 11.2145 11.8339C11.6468 11.402 11.9583 10.8506 12.1145 10.2411C12.2707 9.63153 12.2653 8.98768 12.0991 8.38116C11.9328 7.77464 11.6122 7.22924 11.1729 6.80561C12.4395 5.40575 14.629 2.56363 14.235 0C14.235 0 15.3841 1.82958 15.398 4.64589C15.398 4.64589 14.7309 5.95906 14.7067 7.23903C15.6278 6.36297 16.6076 5.10697 16.63 3.73478C16.63 3.73478 16.6733 3.84913 16.7303 4.05201L16.8616 4.63298C16.9383 5.05421 16.9788 5.48202 16.9826 5.9111C17.0058 6.36386 17.0058 6.81763 16.9826 7.27038C16.9287 8.50227 16.6474 9.71068 16.1548 10.8263C16.1548 10.8263 15.9198 10.8779 15.5517 10.983C14.584 11.2449 13.2413 11.7208 12.1751 12.4788L12.0749 12.5507C11.2437 13.1464 10.5853 13.91 10.4782 14.8635" fill="#A4584E"/></symbol>
+<symbol id="crest-grandmaster" viewBox="0 0 17 15" preserveAspectRatio="xMidYMid meet"><path d="M7.61488 15C7.90271 14.2471 8.14287 13.4744 8.33375 12.6872C7.75357 12.5611 7.21753 12.2657 6.78526 11.8339C6.353 11.402 6.04145 10.8506 5.88528 10.2411C5.72911 9.63153 5.73445 8.98768 5.90068 8.38116C6.06692 7.77464 6.38755 7.22924 6.82689 6.80561C5.56024 5.40575 3.3708 2.56363 3.76479 0C3.76479 0 2.61564 1.82958 2.60009 4.64589C2.60009 4.64589 3.26884 5.95906 3.29131 7.23903C2.37026 6.36297 1.39045 5.10697 1.36799 3.73478C1.36799 3.73478 1.32479 3.84913 1.26776 4.05201L1.1347 4.63667C1.05957 5.0581 1.01967 5.48582 1.01547 5.91479C0.99224 6.36754 0.99224 6.82132 1.01547 7.27407C1.07101 8.50634 1.35406 9.71476 1.84839 10.83C1.84839 10.83 2.08167 10.8816 2.45148 10.9867C3.41745 11.2486 4.76188 11.7245 5.82808 12.4825L5.92658 12.5544C6.75777 13.1501 7.41616 13.9137 7.5233 14.8672" fill="#756572"/>
+<path d="M11.1591 9.33981C11.1594 8.8783 11.0315 8.42704 10.7915 8.04312C10.5515 7.6592 10.2102 7.35988 9.81083 7.18301C9.41142 7.00614 8.97184 6.95967 8.54769 7.04949C8.12354 7.1393 7.73387 7.36136 7.42798 7.68758C7.12209 8.01379 6.91373 8.4295 6.82924 8.88213C6.74475 9.33475 6.78794 9.80395 6.95334 10.2304C7.11874 10.6568 7.39893 11.0213 7.75845 11.2777C8.11797 11.5342 8.54067 11.6711 8.97309 11.6711C9.55241 11.6706 10.1079 11.4249 10.5177 10.9878C10.9275 10.5508 11.1582 9.95812 11.1591 9.33981Z" fill="#CD4545"/>
+<path d="M10.3849 15C10.0971 14.2471 9.8569 13.4744 9.66602 12.6872C10.2462 12.5611 10.7822 12.2657 11.2145 11.8339C11.6468 11.402 11.9583 10.8506 12.1145 10.2411C12.2707 9.63153 12.2653 8.98768 12.0991 8.38116C11.9328 7.77464 11.6122 7.22924 11.1729 6.80561C12.4395 5.40575 14.629 2.56363 14.235 0C14.235 0 15.3841 1.82958 15.398 4.64589C15.398 4.64589 14.7309 5.95906 14.7067 7.23903C15.6278 6.36297 16.6076 5.10697 16.63 3.73478C16.63 3.73478 16.6733 3.84913 16.7303 4.05201L16.8616 4.63298C16.9383 5.05421 16.9788 5.48202 16.9826 5.9111C17.0058 6.36386 17.0058 6.81763 16.9826 7.27038C16.9287 8.50227 16.6474 9.71068 16.1548 10.8263C16.1548 10.8263 15.9198 10.8779 15.5517 10.983C14.584 11.2449 13.2413 11.7208 12.1751 12.4788L12.0749 12.5507C11.2437 13.1464 10.5853 13.91 10.4782 14.8635" fill="#756572"/></symbol>
+<symbol id="crest-challenger" viewBox="0 0 17 15" preserveAspectRatio="xMidYMid meet"><path d="M7.61488 15C7.90271 14.2471 8.14287 13.4744 8.33375 12.6872C7.75357 12.5611 7.21753 12.2657 6.78526 11.8339C6.353 11.402 6.04145 10.8506 5.88528 10.2411C5.72911 9.63153 5.73445 8.98768 5.90068 8.38116C6.06692 7.77464 6.38755 7.22924 6.82689 6.80561C5.56024 5.40575 3.3708 2.56363 3.76479 0C3.76479 0 2.61564 1.82958 2.60009 4.64589C2.60009 4.64589 3.26884 5.95906 3.29131 7.23903C2.37026 6.36297 1.39045 5.10697 1.36799 3.73478C1.36799 3.73478 1.32479 3.84913 1.26776 4.05201L1.1347 4.63667C1.05957 5.0581 1.01967 5.48582 1.01547 5.91479C0.99224 6.36754 0.99224 6.82132 1.01547 7.27407C1.07101 8.50634 1.35406 9.71476 1.84839 10.83C1.84839 10.83 2.08167 10.8816 2.45148 10.9867C3.41745 11.2486 4.76188 11.7245 5.82808 12.4825L5.92658 12.5544C6.75777 13.1501 7.41616 13.9137 7.5233 14.8672" fill="#F4C874"/>
+<path d="M11.1591 9.33981C11.1594 8.8783 11.0315 8.42704 10.7915 8.04312C10.5515 7.6592 10.2102 7.35988 9.81083 7.18301C9.41142 7.00614 8.97184 6.95967 8.54769 7.04949C8.12354 7.1393 7.73387 7.36136 7.42798 7.68758C7.12209 8.01379 6.91373 8.4295 6.82924 8.88213C6.74475 9.33475 6.78794 9.80395 6.95334 10.2304C7.11874 10.6568 7.39893 11.0213 7.75845 11.2777C8.11797 11.5342 8.54067 11.6711 8.97309 11.6711C9.55241 11.6706 10.1079 11.4249 10.5177 10.9878C10.9275 10.5508 11.1582 9.95812 11.1591 9.33981Z" fill="#3FBFDD"/>
+<path d="M10.3849 15C10.0971 14.2471 9.8569 13.4744 9.66602 12.6872C10.2462 12.5611 10.7822 12.2657 11.2145 11.8339C11.6468 11.402 11.9583 10.8506 12.1145 10.2411C12.2707 9.63153 12.2653 8.98768 12.0991 8.38116C11.9328 7.77464 11.6122 7.22924 11.1729 6.80561C12.4395 5.40575 14.629 2.56363 14.235 0C14.235 0 15.3841 1.82958 15.398 4.64589C15.398 4.64589 14.7309 5.95906 14.7067 7.23903C15.6278 6.36297 16.6076 5.10697 16.63 3.73478C16.63 3.73478 16.6733 3.84913 16.7303 4.05201L16.8616 4.63298C16.9383 5.05421 16.9788 5.48202 16.9826 5.9111C17.0058 6.36386 17.0058 6.81763 16.9826 7.27038C16.9287 8.50227 16.6474 9.71068 16.1548 10.8263C16.1548 10.8263 15.9198 10.8779 15.5517 10.983C14.584 11.2449 13.2413 11.7208 12.1751 12.4788L12.0749 12.5507C11.2437 13.1464 10.5853 13.91 10.4782 14.8635" fill="#F4C874"/></symbol>
+<symbol id="crest-unranked" viewBox="0 0 16 16" preserveAspectRatio="xMidYMid meet"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.99843 0L9.97792 2.28571H9.95707C9.34022 2.10018 8.68259 2 8 2C7.31741 2 6.65978 2.10018 6.04293 2.28571H6.01895L7.99843 0ZM8 14C7.31741 14 6.65978 13.8998 6.04293 13.7143H6.01895L7.99843 16L9.97792 13.7143H9.95707C9.34022 13.8998 8.68259 14 8 14ZM0 7.99999C0 6.12995 0.641634 4.40977 1.71676 3.0476H4.61169C3.0346 4.12868 2 5.94351 2 7.99999C2 10.0565 3.03461 11.8713 4.61171 12.9524H1.71677C0.641639 11.5902 0 9.87003 0 7.99999ZM14.2832 12.9524C15.3584 11.5902 16 9.87003 16 7.99999C16 6.12995 15.3584 4.40977 14.2832 3.0476H11.3883C12.9654 4.12868 14 5.94351 14 7.99999C14 10.0565 12.9654 11.8713 11.3883 12.9524H14.2832ZM11 8C11 9.65685 9.65685 11 8 11C6.34315 11 5 9.65685 5 8C5 6.34315 6.34315 5 8 5C9.65685 5 11 6.34315 11 8Z" fill="#63666B"/></symbol>
+</svg>
+
+<script>
+(function(){
+  var TIERS = ["iron","bronze","silver","gold","platinum","emerald","diamond","master","grandmaster","challenger","unranked"];
+
+  var ACCOUNTS = [
+    { riot:"Thunder4719", tag:"NA1", login:"accountOne", region:"NA",
+      tier:"DIAMOND", div:"IV", lp:12, w:89, l:74, lvl:156, tk:"diamond", health:"ok" },
+    { riot:"accountThree", tag:"LAN", login:"accountThree", region:"LAN",
+      tier:"EMERALD", div:"II", lp:71, w:143, l:128, lvl:201, tk:"emerald", health:"ok" },
+    { riot:"accountFour", tag:"NA1", login:"accountFour", region:"NA",
+      tier:"GOLD", div:"IV", lp:42, w:67, l:61, lvl:112, tk:"gold", health:"ok" },
+    { riot:"accountTwo", tag:"NA1", login:"accountTwo", region:"NA",
+      tier:"UNRANKED", div:"", lp:null, w:2, l:1, lvl:41, tk:"unranked", health:"stale" }
+  ];
+
+  function initials(s){
+    var p = s.replace(/[^A-Za-z ]/g,"").trim().split(/\s+/);
+    return ((p[0]||"?")[0] + (p[1]? p[1][0] : "")).toUpperCase();
+  }
+  function hue(s){ var h=0; for(var i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%360; return h; }
+
+  var grid = document.getElementById("grid");
+
+  ACCOUNTS.forEach(function(a){
+    var total = a.w + a.l;
+    var wr = total ? Math.round(a.w/total*100) : 0;
+    var ranked = a.tier !== "UNRANKED";
+
+    var card = document.createElement("div");
+    card.className = "card";
+    card.style.setProperty("--tier","var(--"+a.tk+")");
+
+    card.innerHTML =
+      '<span class="health'+(a.health==="stale"?" stale":"")+'" title="'+
+        (a.health==="stale"?"Session stale — may need re-enrolment":"Session valid")+'"></span>'+
+      '<div class="card-body">'+
+        '<div class="idrow">'+
+          '<div class="pfp" style="background:linear-gradient(140deg,hsl('+hue(a.login)+' 42% 62%),hsl('+((hue(a.login)+40)%360)+' 38% 44%))">'+
+            initials(a.riot)+'<span class="lvl">'+a.lvl+'</span>'+
+          '</div>'+
+          '<div class="names">'+
+            '<div class="riotid">'+a.riot+'<span class="tag">#'+a.tag+'</span></div>'+
+            '<div class="login">'+a.login+'</div>'+
+          '</div>'+
+        '</div>'+
+        '<div class="rank-row">'+
+          '<svg class="crest" viewBox="0 0 20 20" aria-hidden="true"><use href="#crest-'+a.tk+'"/></svg>'+
+          '<span class="tier">'+(ranked ? a.tier+" "+a.div : "Unranked")+'</span>'+
+          '<span class="lp">'+(ranked
+              ? '<b>'+a.lp+'</b> LP'
+              : '<b>'+total+'</b>/5 placements')+'</span>'+
+          '<span class="region" style="margin-left:auto">'+a.region+'</span>'+
+        '</div>'+
+        '<div class="meta">'+
+          '<span class="wl" style="margin-left:0"><b>'+a.w+'</b>W '+a.l+'L &middot; '+wr+'% WR</span>'+
+        '</div>'+
+        '<div class="bar"><span style="width:'+wr+'%"></span></div>'+
+        '<div class="cardbar">'+
+          '<button class="cbtn go" data-act="switch">Switch</button>'+
+          '<button class="cbtn" data-act="details">Details</button>'+
+        '</div>'+
+      '</div>';
+
+    card.addEventListener("click", function(e){
+      var act = e.target.closest("[data-act]");
+      if(act && act.dataset.act === "switch"){ e.stopPropagation(); openModal(a); return; }
+      openPanel(a);
+    });
+    grid.appendChild(card);
+  });
+
+  var add = document.createElement("button");
+  add.className = "addcard";
+  add.innerHTML = '<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">'+
+    '<path d="M11 5v12M5 11h12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Add account';
+  grid.appendChild(add);
+
+  /* tier palette */
+  var pal = document.getElementById("palette");
+  TIERS.forEach(function(t){
+    var s = document.createElement("span");
+    s.className = "sw";
+    s.innerHTML = '<svg viewBox="0 0 20 20" style="width:16px;height:16px" aria-hidden="true"><use href="#crest-'+t+'"/></svg>'+t;
+    pal.appendChild(s);
+  });
+
+  /* ---------- detail panel ---------- */
+  var panel  = document.getElementById("panel"),
+      pscrim = document.getElementById("pscrim"),
+      scrim  = document.getElementById("scrim"),
+      modal  = document.getElementById("modal"),
+      last   = null,
+      cur    = null;
+
+  var PLATFORM = { NA:"na1", LAN:"la1", LAS:"la2", BR:"br1", EUW:"euw1", EUNE:"eun1",
+                   TR:"tr1", RU:"ru", KR:"kr", JP:"jp1", OCE:"oc1" };
+
+  function openPanel(a){
+    cur = a;
+    var ranked = a.tier !== "UNRANKED",
+        total  = a.w + a.l,
+        wr     = total ? Math.round(a.w/total*100) : 0;
+
+    panel.style.setProperty("--tier","var(--"+a.tk+")");
+    document.getElementById("phead").style.setProperty("--tier","var(--"+a.tk+")");
+
+    var pfp = document.getElementById("ppfp");
+    pfp.style.background = "linear-gradient(140deg,hsl("+hue(a.login)+" 42% 62%),hsl("+((hue(a.login)+40)%360)+" 38% 44%))";
+    pfp.innerHTML = initials(a.riot)+'<span class="lvl">'+a.lvl+'</span>';
+
+    document.getElementById("ptitle").innerHTML = a.riot+'<span class="tag">#'+a.tag+'</span>';
+    document.getElementById("plogin").textContent = a.login;
+
+    document.getElementById("prank").innerHTML =
+      '<svg class="crest" viewBox="0 0 20 20" aria-hidden="true"><use href="#crest-'+a.tk+'"/></svg>'+
+      '<span class="tier">'+(ranked ? a.tier+" "+a.div : "Unranked")+'</span>'+
+      '<span class="lp">'+(ranked ? '<b>'+a.lp+'</b> LP' : '<b>'+total+'</b>/5 placements')+'</span>'+
+      '<span class="region" style="margin-left:auto">'+a.region+'</span>';
+
+    var stats = [
+      ["Level", a.lvl],
+      ["Region", a.region],
+      ["Solo/Duo", ranked ? a.tier.charAt(0)+a.tier.slice(1).toLowerCase()+" "+a.div : "Unranked"],
+      ["League points", ranked ? a.lp+" LP" : "—"],
+      ["Wins / losses", a.w+" / "+a.l],
+      ["Win rate", wr+"%"],
+      ["Session", a.health === "stale" ? "Stale" : "Valid"],
+      ["Last played", a.health === "stale" ? "23 days ago" : "2 hours ago"]
+    ];
+    document.getElementById("pstats").innerHTML = stats.map(function(s){
+      return '<div class="stat"><div class="k">'+s[0]+'</div><div class="v">'+s[1]+'</div></div>';
+    }).join("");
+
+    var slug = encodeURIComponent(a.riot)+"-"+encodeURIComponent(a.tag),
+        plat = PLATFORM[a.region] || "na1",
+        low  = a.region.toLowerCase();
+    document.getElementById("lk-opgg").href    = "https://op.gg/lol/summoners/"+low+"/"+slug;
+    document.getElementById("lk-ugg").href     = "https://u.gg/lol/profile/"+plat+"/"+slug+"/overview";
+    document.getElementById("lk-deeplol").href = "https://www.deeplol.gg/summoner/"+low+"/"+slug;
+
+    document.getElementById("f-user").value = a.login;
+    var pw = document.getElementById("f-pass");
+    pw.type = "password"; pw.value = "hunter2placeholder";
+    document.getElementById("f-reveal").textContent = "Show";
+
+    pscrim.dataset.open = "true";
+    panel.dataset.open  = "true";
+    last = document.activeElement;
+    document.getElementById("pclose").focus();
+  }
+  function closePanel(){
+    panel.dataset.open = "false";
+    pscrim.dataset.open = "false";
+    if(last) last.focus();
+  }
+
+  document.getElementById("pclose").addEventListener("click", closePanel);
+  pscrim.addEventListener("click", closePanel);
+
+  document.getElementById("f-reveal").addEventListener("click", function(){
+    var pw = document.getElementById("f-pass");
+    var show = pw.type === "password";
+    pw.type = show ? "text" : "password";
+    this.textContent = show ? "Hide" : "Show";
+  });
+  document.getElementById("f-save").addEventListener("click", function(){
+    var b = this; b.textContent = "Saved ✓";
+    setTimeout(function(){ b.textContent = "Save credentials"; }, 1600);
+  });
+  document.getElementById("p-switch").addEventListener("click", function(){
+    if(cur) openModal(cur);
+  });
+
+  /* ---------- switch confirmation ---------- */
+  function openModal(a){
+    document.getElementById("mname").textContent = a.riot+"#"+a.tag;
+    modal.style.setProperty("--tier","var(--"+a.tk+")");
+    scrim.dataset.open = "true";
+    document.getElementById("cancel").focus();
+  }
+  function closeModal(){
+    scrim.dataset.open = "false";
+    if(panel.dataset.open === "true") document.getElementById("p-switch").focus();
+  }
+  document.getElementById("cancel").addEventListener("click", closeModal);
+  document.getElementById("confirm").addEventListener("click", function(){
+    closeModal(); closePanel();
+  });
+  scrim.addEventListener("click", function(e){ if(e.target === scrim) closeModal(); });
+
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Escape") return;
+    if(scrim.dataset.open === "true") closeModal();
+    else if(panel.dataset.open === "true") closePanel();
+  });
+})();
+</script>
