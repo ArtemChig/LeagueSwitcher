@@ -16,8 +16,45 @@
  */
 import { spawn } from "node:child_process";
 
+/**
+ * The blob was read by DPAPI and rejected — wrong user, wrong machine, or genuinely damaged.
+ * This is the only failure that means "the data is bad".
+ */
+export class DpapiRejectedError extends Error {
+  readonly kind = "rejected" as const;
+}
+
+/**
+ * DPAPI could not be *run*: powershell.exe would not start, exited oddly, or produced nothing.
+ * Says nothing about the data. Treating this as corruption is how a transient hiccup turns
+ * into permanent loss of the vault, so it is a distinct type and callers must not confuse it.
+ */
+export class DpapiUnavailableError extends Error {
+  readonly kind = "unavailable" as const;
+}
+
 /** Extra entropy mixed into every operation, tying blobs to this application. */
 const ENTROPY = "LeagueSwitcher.v1";
+
+/**
+ * Run the helper, retrying only failures that say nothing about the data.
+ *
+ * Spawning PowerShell can fail under load — which happens exactly when this app is busiest,
+ * stopping and restarting the Riot client. One retry turns a lost vault read into a pause.
+ */
+async function runPowerShellWithRetry(script: string, stdin: string, attempts = 3): Promise<string> {
+  let last: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await runPowerShell(script, stdin);
+    } catch (err) {
+      last = err;
+      if (err instanceof DpapiRejectedError) throw err; // the data is bad; retrying cannot help
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 120 * (i + 1)));
+    }
+  }
+  throw last;
+}
 
 function runPowerShell(script: string, stdin: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -68,15 +105,15 @@ $plain = [Security.Cryptography.ProtectedData]::Unprotect($bytes, $entropy, 'Cur
 
 /** Encrypt for the current Windows user. */
 export async function protect(plaintext: string): Promise<Buffer> {
-  const b64 = await runPowerShell(PROTECT_SCRIPT, Buffer.from(plaintext, "utf8").toString("base64"));
-  if (!b64) throw new Error("DPAPI: encryption produced no output");
+  const b64 = await runPowerShellWithRetry(PROTECT_SCRIPT, Buffer.from(plaintext, "utf8").toString("base64"));
+  if (!b64) throw new DpapiUnavailableError("encryption produced no output");
   return Buffer.from(b64, "base64");
 }
 
 /** Decrypt. Throws if the blob belongs to another user or machine, or has been tampered with. */
 export async function unprotect(ciphertext: Buffer): Promise<string> {
-  const b64 = await runPowerShell(UNPROTECT_SCRIPT, ciphertext.toString("base64"));
-  if (!b64) throw new Error("DPAPI: decryption produced no output");
+  const b64 = await runPowerShellWithRetry(UNPROTECT_SCRIPT, ciphertext.toString("base64"));
+  if (!b64) throw new DpapiUnavailableError("decryption produced no output");
   return Buffer.from(b64, "base64").toString("utf8");
 }
 

@@ -21,7 +21,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileS
 import { dirname, join } from "node:path";
 import { appPaths } from "../riot/paths.js";
 import { registerSecret } from "../log/redact.js";
-import { protect, unprotect } from "./dpapi.js";
+import { DpapiUnavailableError, protect, unprotect } from "./dpapi.js";
 
 export const VAULT_SCHEMA_VERSION = 1;
 
@@ -42,7 +42,7 @@ const EMPTY: VaultContents = { version: VAULT_SCHEMA_VERSION, apiKey: null, cred
 
 /** Non-fatal problems worth surfacing in the UI rather than throwing. */
 export interface VaultWarning {
-  kind: "corrupt" | "migrated" | "unreadable-session";
+  kind: "corrupt" | "migrated" | "unreadable-session" | "unavailable";
   message: string;
   detail?: string;
 }
@@ -106,6 +106,32 @@ export class Vault {
       };
       this.registerAllSecrets();
     } catch (err) {
+      // Not every failure means the data is bad.
+      //
+      // This used to treat ANY throw as corruption: wipe the in-memory vault and rename
+      // secrets.enc out of the way. But decryption shells out to powershell.exe, which can
+      // fail to start under load — precisely when this app is busiest, stopping and
+      // restarting the Riot client. The observed symptom was "No Riot API key is configured"
+      // moments after enrolling an account, from a vault that was completely intact; the
+      // rename happened to fail because the file was in use, which is the only reason the
+      // key survived. Had it succeeded, a transient hiccup would have permanently destroyed
+      // the API key and every stored password.
+      //
+      // So: only a cryptographic rejection is evidence of corruption. Anything else leaves
+      // the file alone and reports the vault as temporarily unreadable.
+      if (err instanceof DpapiUnavailableError) {
+        this.contents = { ...EMPTY, credentials: {} };
+        // Force a real re-read next time rather than caching this failure as the truth.
+        this.loaded = false;
+        this.stamp = "";
+        this.warnings.push({
+          kind: "unavailable",
+          message: "The secrets vault could not be read just now. Nothing has been changed — try again.",
+          detail: (err as Error).message,
+        });
+        return;
+      }
+
       const aside = `${appPaths.secrets}.corrupt-${Date.now()}`;
       try {
         renameSync(appPaths.secrets, aside);
