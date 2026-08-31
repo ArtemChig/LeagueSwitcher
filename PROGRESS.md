@@ -10,9 +10,9 @@ Only one task may be `DOING` at a time.
 
 ## Current state
 
-**Phase:** 4 — **COMPLETE** (P4.1-P4.6). Phases 0/1/2 done; gates P0.6 and P2.7 blocked on missing files
-**Next:** Phase 3 — UI, then Phase 5 packaging
-**Last updated:** 2026-08-31 11:32 — Phase 4 hardening done; 82 tests pass
+**Phase:** 3 — **COMPLETE** (P3.1-P3.8). Phases 0/1/2/4 done. Gates P0.6 and P2.7 blocked on missing files
+**Next:** Phase 5 — packaging
+**Last updated:** 2026-08-31 12:12 — the app runs; UI verified by driving it over CDP and screenshotting
 **Baseline backup exists:** ✅ YES — `%APPDATA%\LeagueSwitcher\backups\baseline-20260831-060859`
   (re-taken this run; the previously recorded one was gone — see "Blocked / failed")
 **Git:** initialised, history verified free of secrets. Commit locally, **never push**.
@@ -72,14 +72,14 @@ Only one task may be `DOING` at a time.
 
 | ID | Task | Status | Verified | Notes |
 |---|---|---|---|---|
-| P3.1 | Electron + Vite + React + Tailwind scaffold | TODO | | |
-| P3.2 | Account grid | TODO | | **Design LOCKED** — port `docs/mockup.html`, do not redesign |
-| P3.3 | Switch flow + progress | TODO | | |
-| P3.4 | Add/edit + enrollment ladder | TODO | | |
-| P3.5 | Account detail slide-over + credential editing | TODO | | **Design LOCKED** — see PLAN §5 |
-| P3.8 | Rank crest asset cache (Community Dragon SVGs) | TODO | | Bundle offline fallback |
-| P3.6 | Settings + panic restore | TODO | | |
-| P3.7 | Shortcuts, tray, single-instance | TODO | | |
+| P3.1 | Electron + Vite + React scaffold | **DONE — app runs** | 2026-08-31 12:12 | Electron 44 + React 19 + Vite 8. Typed IPC over `contextBridge` with a **fixed channel list**, not a generic `invoke(channel,…)` — a generic bridge lets anything in the renderer call any handler. `contextIsolation` on, `nodeIntegration` off, CSP forbids every remote origin. **Two deviations from PLAN §2.1, both deliberate — see Deviations** |
+| P3.2 | Account grid | **DONE — verified by screenshot** | 2026-08-31 12:12 | The mockup's CSS lifted verbatim and its DOM structure ported; additive states appended below a marked line (skeleton, empty grid, banners, per-card error, toast). Renders live data: SUMMONER ONE#TAG1, accountOne, NA, level 33, real profile icon, Unranked handled as a state not an error |
+| P3.3 | Switch flow + progress | **DONE (UI verified, switch not run from UI)** | 2026-08-31 12:12 | Confirmation then live progress in one modal, driven by the engine's own `SwitchStep` events so the list cannot drift from what the engine does. Preflight blockers/confirmations/notes are rendered before anything starts. ⚠️ The switch itself was verified through the CLI, not clicked in the UI — doing so would sign this machine out and back in |
+| P3.4 | Add/edit + enrolment ladder | **DONE — dialog verified** | 2026-08-31 12:12 | Two routes: capture the signed-in account (one click, nothing closed) and assisted sign-in (S4). **No password-login route is offered** — Riot issues hCaptcha on every login, so a password box that usually fails would be worse than none |
+| P3.5 | Account detail slide-over + credential editing | **DONE — verified by screenshot** | 2026-08-31 12:12 | All five sections in the locked order. The password is fetched from the vault **only on Show**, never on open. Hint text states exactly what saving does — writes to the vault, does not re-authenticate. **Fixed a flex bug inherited from the mockup**: `.panel` is a flex column, so the header shrank from 131px to 38px once content overflowed, clipping the avatar and rank row. Found by measuring, after two wrong guesses |
+| P3.8 | Rank crest asset cache | **DONE — verified** | 2026-08-31 11:05 | All 11 bundled in `assets/crests/`, inlined as an SVG sprite so the grid never flashes crest-less. Cache -> network -> bundled fallback at runtime |
+| P3.6 | Settings + panic restore | **DONE — dialog verified** | 2026-08-31 12:12 | API key (stored encrypted, never displayed), data folder, Data Dragon version, vault warnings. Panic restore is behind a typed `RESTORE` confirmation because it closes the client and discards the live session — right when things have gone wrong, wrong on a stray click |
+| P3.7 | Shortcuts, tray, single-instance | **DONE** | 2026-08-31 12:12 | `Ctrl+1..9` switch, `Ctrl+F` search, `Esc` closes the panel (the modal owns Esc while up). Tray icon with show/quit. **Single-instance lock matters more than it looks**: two copies could capture and restore the session file concurrently, which is exactly how an account's session gets lost |
 
 ## Phase 4 — Hardening
 
@@ -183,4 +183,32 @@ Nothing was reconstructed from memory. No credential value appears anywhere in t
 
 ## Deviations from PLAN.md
 
-*(populate during the run)*
+### 1. Tailwind dropped in favour of the mockup's own CSS (P3.1)
+
+PLAN §2.1 lists Tailwind. PLAN §5 says the design is locked and to *"lift its CSS directly
+rather than reinterpreting it."* Those pull in opposite directions — porting the mockup to
+Tailwind utilities **is** reinterpreting it, and would have invited exactly the drift §5 forbids.
+
+`src/renderer/styles.css` is therefore the mockup's stylesheet verbatim, minus its own review
+furniture, with additive states appended below a clearly marked line. §5's instruction won
+because it is the more specific and more emphatic of the two.
+
+### 2. Zustand dropped (P3.1)
+
+PLAN §2.1 lists Zustand for state. The renderer turned out to hold one list, one status object
+and four booleans, all owned by a single component. React's own state covers it without a
+dependency. If the UI grows a second consumer of shared state this is worth revisiting.
+
+### 3. `electron-vite` replaced with vite + esbuild (P3.1)
+
+Not a preference — a hard dependency conflict. `electron-vite` peer-requires `vite@7`, while
+`vitest@4` requires `vite@8`. Downgrading the test runner to satisfy a build wrapper was the
+worse trade, so the renderer is built by vite directly and main/preload by esbuild
+(`scripts/build-electron.mjs`, ~40 lines). Same output, one less dependency.
+
+### 4. DPAPI called directly instead of Electron `safeStorage` (P1.5)
+
+PLAN §2.1 nominates `safeStorage`, which is DPAPI underneath. But Phase 1's engine and CLI must
+run headlessly, and `safeStorage` needs an Electron app instance. Calling
+`System.Security.Cryptography.ProtectedData` directly gives the CLI and the GUI **one vault
+format** instead of two incompatible ones. Same security properties.
