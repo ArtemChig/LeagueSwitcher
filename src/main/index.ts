@@ -9,7 +9,7 @@
  * an account's session gets lost. The second instance focuses the first and exits.
  */
 import { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage } from "electron";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,6 +25,7 @@ import { buildExternalLinks } from "./api/links.js";
 import { collectForCurrentAccount, refreshSessionHealth } from "./enrich/collector.js";
 import { getDataDragonVersion, getProfileIcon, readCrestSvg } from "./assets/cache.js";
 import { beginAssistedEnrolment, captureCurrentSession, preflightSwitch, switchToAccount } from "./switch/strategies.js";
+import { createBaselineBackup, hasBaseline, latestBaselineSessionFile } from "./store/backup.js";
 import { getLogger } from "./log/logger.js";
 import { SWITCH_PROGRESS_CHANNEL, type AccountView, type AppStatus, type RefreshOutcome } from "../shared/ipc.js";
 
@@ -145,6 +146,7 @@ function registerIpc(): void {
       signedInAs,
       signedInAccountId,
       hasApiKey: Boolean(vault.getApiKey()),
+      hasBaseline: hasBaseline(),
       dataDragonVersion: await getDataDragonVersion(),
       lastRefreshAt,
       warnings: vault.warnings.map((w) => w.message).concat(getAccountStore().warnings),
@@ -254,28 +256,31 @@ function registerIpc(): void {
   });
 
   /** P3.6 — panic restore: put the baseline snapshot back. */
-  ipcMain.handle("settings:panicRestore", async () => {
-    if (!existsSync(appPaths.backups)) return { ok: false, message: "No backups directory exists." };
+  /** P5.3 — take the safety snapshot. Read-only with respect to the Riot install. */
+  ipcMain.handle("settings:takeBaseline", async () => {
+    const result = createBaselineBackup();
+    if (!result.ok) return { ok: false, message: `Backup failed: ${result.error}` };
+    if (result.captured === 0) {
+      return { ok: false, message: "Nothing to back up — no Riot session file was found on this machine." };
+    }
+    log.info(`baseline backup taken: ${result.directory} (${result.captured} file(s))`);
+    return { ok: true, message: `Saved a snapshot of ${result.captured} file(s).`, directory: result.directory };
+  });
 
-    const snapshots = readdirSync(appPaths.backups)
-      .filter((d) => d.startsWith("baseline-"))
-      .sort();
-    const latest = snapshots.at(-1);
-    if (!latest) return { ok: false, message: "No baseline snapshot to restore." };
+  ipcMain.handle("settings:panicRestore", async () => {
+    const file = latestBaselineSessionFile();
+    if (!file) return { ok: false, message: "No baseline snapshot to restore from." };
 
     if (await isGameRunning()) {
       return { ok: false, message: "A game is running. Close it before restoring." };
     }
 
-    const file = join(appPaths.backups, latest, "riotclient-session__RiotGamesPrivateSettings.yaml");
-    if (!existsSync(file)) return { ok: false, message: `Snapshot ${latest} has no session file.` };
-
     try {
       const { shutdownRiot } = await import("./riot/process.js");
       await shutdownRiot({ includeLeague: true });
       restoreSessionFromString(readFileSync(file, "utf8"));
-      log.warn(`panic restore from ${latest}`);
-      return { ok: true, message: `Restored the original session from ${latest}. Start the Riot Client to check.` };
+      log.warn("panic restore performed");
+      return { ok: true, message: "Restored the original session. Start the Riot Client to check." };
     } catch (err) {
       return { ok: false, message: `Restore failed: ${(err as Error).message}` };
     }

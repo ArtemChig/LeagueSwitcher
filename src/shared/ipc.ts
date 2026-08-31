@@ -42,6 +42,8 @@ export interface AppStatus {
   signedInAs: string | null;
   signedInAccountId: string | null;
   hasApiKey: boolean;
+  /** P5.3 — a baseline snapshot exists. Without one, nothing destructive should run. */
+  hasBaseline: boolean;
   dataDragonVersion: string;
   lastRefreshAt: string | null;
   /** Non-fatal problems worth showing once, e.g. a vault that had to be set aside. */
@@ -83,6 +85,7 @@ export interface IpcApi {
   "settings:openExternal": (url: string) => Promise<void>;
   "settings:openDataFolder": () => Promise<void>;
   "settings:panicRestore": () => Promise<{ ok: boolean; message: string }>;
+  "settings:takeBaseline": () => Promise<{ ok: boolean; message: string; directory?: string }>;
 
   "assets:crest": (tier: string) => Promise<string | null>;
   "assets:icon": (iconId: number) => Promise<string | null>;

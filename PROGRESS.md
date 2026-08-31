@@ -10,9 +10,10 @@ Only one task may be `DOING` at a time.
 
 ## Current state
 
-**Phase:** 3 — **COMPLETE** (P3.1-P3.8). Phases 0/1/2/4 done. Gates P0.6 and P2.7 blocked on missing files
-**Next:** Phase 5 — packaging
-**Last updated:** 2026-08-31 12:12 — the app runs; UI verified by driving it over CDP and screenshotting
+**Phase:** 5 — **COMPLETE.** All phases done. Gates P0.6 and P2.7 remain BLOCKED on files missing from this
+machine (test credentials, API key) — see "Blocked / failed"
+**Next:** sweep passes
+**Last updated:** 2026-08-31 12:26 — portable exe built and run; all 5 phases complete
 **Baseline backup exists:** ✅ YES — `%APPDATA%\LeagueSwitcher\backups\baseline-20260831-060859`
   (re-taken this run; the previously recorded one was gone — see "Blocked / failed")
 **Git:** initialised, history verified free of secrets. Commit locally, **never push**.
@@ -96,9 +97,9 @@ Only one task may be `DOING` at a time.
 
 | ID | Task | Status | Verified | Notes |
 |---|---|---|---|---|
-| P5.1 | electron-builder portable exe | TODO | | |
-| P5.2 | README | TODO | | |
-| P5.3 | First-run wizard | TODO | | |
+| P5.1 | electron-builder portable exe | **DONE — the exe was run** | 2026-08-31 12:21 | `release/LeagueSwitcher-0.1.0-portable.exe`, 96 MB, single file, no installer. **Verified by running it**, not just building it: logs `(packaged)`, renders identically to dev with crests, profile icon and live data. App icon rendered from the mockup's own logo glyph via Electron (`scripts/make-icon.cjs`), so no image toolchain is needed for one asset |
+| P5.2 | README | **DONE** | 2026-08-31 12:26 | Setup, the mechanism explained (why password replay is dead and session capture is not), where data lives, the safety guarantees, build/verify commands, and an honest ToS note that says plainly what this does and does not do |
+| P5.3 | First-run wizard | **DONE — verified by screenshot** | 2026-08-31 12:24 | The empty grid **is** the wizard — a separate welcome screen would just be a click in front of the same two actions. Step 2 (capture) stays disabled until step 1 (safety snapshot) is done, so it cannot be completed in the unsafe order. `store/backup.ts` ports the backup into TypeScript because `scripts/` is not shipped inside the exe, and it also writes `restore-baseline.ps1` beside the snapshot — the recovery path must not depend on this app starting. Verified against an empty data dir |
 
 ---
 

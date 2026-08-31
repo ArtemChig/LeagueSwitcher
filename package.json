@@ -21,7 +21,10 @@
     "build": "npm run build:main && npm run build:renderer",
     "start": "npm run build && electron .",
     "fonts": "node scripts/fetch-fonts.mjs",
-    "crests": "node scripts/fetch-crests.mjs"
+    "crests": "node scripts/fetch-crests.mjs",
+    "icon": "electron scripts/make-icon.cjs",
+    "ui-check": "node scripts/ui-check.mjs",
+    "dist": "npm run build && electron-builder --win portable"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
@@ -34,11 +37,46 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vite": "^8.2.2",
-    "vitest": "^4.1.11"
-  },
-  "dependencies": {
+    "vitest": "^4.1.11",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
-  "main": "dist/main/index.mjs"
+  "main": "dist/main/index.mjs",
+  "author": {
+    "name": "LeagueSwitcher"
+  },
+  "build": {
+    "appId": "com.leagueswitcher.app",
+    "productName": "LeagueSwitcher",
+    "copyright": "Personal use",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "assets/crests/*.svg",
+      "assets/icon.png",
+      "package.json",
+      "!**/*.map"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "LeagueSwitcher-${version}-portable.exe"
+    },
+    "portable": {
+      "artifactName": "LeagueSwitcher-${version}-portable.exe"
+    },
+    "forceCodeSigning": false,
+    "compression": "maximum",
+    "asar": true
+  }
 }

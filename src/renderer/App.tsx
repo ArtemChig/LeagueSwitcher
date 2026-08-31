@@ -16,6 +16,7 @@ import { DetailPanel } from "./components/DetailPanel.js";
 import { SwitchModal } from "./components/SwitchModal.js";
 import { EnrolModal } from "./components/EnrolModal.js";
 import { SettingsModal } from "./components/SettingsModal.js";
+import { FirstRun } from "./components/FirstRun.js";
 import { CrestSprite, Crest, normaliseTier } from "./crests.js";
 
 type SortMode = "rank" | "name" | "recent";
@@ -255,6 +256,25 @@ export function App(): JSX.Element {
           </div>
         )}
 
+        {status && !status.hasBaseline && accounts.length > 0 && (
+          <div className="banner warn">
+            <span>
+              <b>No safety snapshot.</b> Take one so the original Riot session can always be put back.
+            </span>
+            <button
+              className="banner-act"
+              onClick={() => {
+                void window.api.takeBaseline().then((r) => {
+                  showToast(r.message, !r.ok);
+                  void reload();
+                });
+              }}
+            >
+              Take snapshot
+            </button>
+          </div>
+        )}
+
         {status?.gameRunning && (
           <div className="banner warn">
             <span>
@@ -318,16 +338,9 @@ export function App(): JSX.Element {
               <h3>Loading…</h3>
             </div>
           ) : accounts.length === 0 ? (
-            <div className="empty">
-              <h3>No accounts yet</h3>
-              <p>
-                Sign in to the Riot Client as any account, then capture it — that stores the session so you can switch
-                back to it in one click, forever, without a password or a captcha.
-              </p>
-              <button className="btn-add" onClick={() => setEnrolOpen(true)}>
-                + Add your first account
-              </button>
-            </div>
+            // P5.3 — with nothing enrolled, the empty grid IS the first-run wizard. A separate
+            // "welcome" screen would just be a click in front of the same two actions.
+            <FirstRun status={status} onDone={() => void reload()} onToast={showToast} />
           ) : visible.length === 0 ? (
             <div className="empty">
               <h3>Nothing matches</h3>

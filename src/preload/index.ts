@@ -37,6 +37,7 @@ const api = {
   openExternal: invoke("settings:openExternal"),
   openDataFolder: invoke("settings:openDataFolder"),
   panicRestore: invoke("settings:panicRestore"),
+  takeBaseline: invoke("settings:takeBaseline"),
 
   getCrest: invoke("assets:crest"),
   getIcon: invoke("assets:icon"),
