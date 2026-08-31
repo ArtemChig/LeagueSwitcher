@@ -232,6 +232,14 @@ async function cmdEnrol(): Promise<number> {
     return 1;
   }
   say(`\nEnrolled ${result.account?.gameName}#${result.account?.tagLine} (${result.accountId})`);
+
+  // Fetch rank and level straight away. Otherwise the account shows as Unranked until the
+  // user happens to run `refresh`, which reads as a half-finished enrolment.
+  if (result.accountId) {
+    const summary = await refreshAllAccounts({ accountIds: [result.accountId] });
+    if (summary.ran && summary.succeeded > 0) say("Fetched its rank and level.");
+    else if (summary.skippedReason === "no-key") say("No API key set, so rank was not fetched.");
+  }
   return 0;
 }
 
