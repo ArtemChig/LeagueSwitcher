@@ -421,6 +421,18 @@ void app.whenReady().then(async () => {
       if (summary.ran) lastRefreshAt = new Date().toISOString();
       mainWindow?.webContents.send(ACCOUNTS_CHANGED_CHANNEL);
       log.info(`launch refresh: ${summary.succeeded} ok, ${summary.failed} failed`);
+
+      // When a refresh does nothing, say why. "No Riot API key" on screen above an intact
+      // vault was diagnosable only by guesswork until this line existed; the vault's own
+      // warnings distinguish "there is no key" from "the key could not be read just now".
+      if (!summary.ran) {
+        const v = await getVault();
+        log.warn(
+          `launch refresh skipped (${summary.skippedReason ?? "unknown"}); ` +
+            `apiKey=${v.getApiKey() ? "present" : "absent"}; ` +
+            `vaultWarnings=${JSON.stringify(v.warnings.map((w) => `${w.kind}: ${w.detail ?? w.message}`))}`
+        );
+      }
     } catch (err) {
       log.warn("launch refresh failed", err);
     }
