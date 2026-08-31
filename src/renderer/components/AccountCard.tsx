@@ -14,6 +14,7 @@ import type { JSX } from "react";
 import { useEffect, useState } from "react";
 import type { AccountView } from "../../shared/ipc.js";
 import { Crest, normaliseTier } from "../crests.js";
+import { useFitText } from "../useFitText.js";
 
 interface Props {
   account: AccountView;
@@ -38,6 +39,10 @@ function initials(name: string): string {
 }
 
 export function AccountCard({ account, loading, onSwitch, onDetails, onRetry }: Props): JSX.Element {
+  // Scale the Riot ID to fit rather than truncating it: the name is the card, and two
+  // smurfs sharing a prefix are indistinguishable once it is cut off.
+  const fit = useFitText<HTMLDivElement>(account.riotIdLabel, { max: 1.35, min: 0.95 });
+
   const tier = normaliseTier(account.tierKey);
   const [icon, setIcon] = useState<string | null>(null);
 
@@ -124,7 +129,7 @@ export function AccountCard({ account, loading, onSwitch, onDetails, onRetry }: 
           </div>
 
           <div className="names">
-            <div className="riotid" title={account.riotIdLabel}>
+            <div className="riotid" title={account.riotIdLabel} ref={fit.ref} style={{ fontSize: fit.fontSize }}>
               {account.gameName ? (
                 <>
                   {account.gameName}

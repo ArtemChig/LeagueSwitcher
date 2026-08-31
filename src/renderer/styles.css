@@ -176,6 +176,8 @@
   .riotid{
     font-family:Rajdhani,sans-serif;font-weight:700;font-size:1.35rem;line-height:1.12;
     letter-spacing:.005em;
+    /* Sized by useFitText so the whole name shows. The ellipsis is only a backstop for names
+       still too long at the minimum size. */
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
   .riotid .tag{color:var(--ink-3);font-weight:500;font-size:.82em;}

@@ -84,6 +84,31 @@ export async function adoptOrphanSessions(): Promise<AdoptReport> {
     const gameName = claims.acct?.game_name ?? null;
     const tagLine = claims.acct?.tag_line ?? null;
 
+    // Does this session already belong to an account we know?
+    //
+    // A switch parks a session it cannot positively identify under `unclaimed-<timestamp>`,
+    // which is the safe thing to do — but adopting that blindly creates a SECOND profile for
+    // an account that already has one. That happened: accountFour appeared twice on the grid,
+    // once under its own id and once under an unclaimed one.
+    //
+    // The token says who it is, so match on that and merge instead of duplicating. Writing
+    // the session under the existing id is safe here in a way it is not elsewhere: identity
+    // is proven by the token, not assumed from bookkeeping.
+    const existing =
+      (claims.sub && store.list().find((a) => a.localPuuid === claims.sub)) ||
+      store.list().find((a) => a.loginUsername.toLowerCase() === loginUsername.toLowerCase()) ||
+      null;
+
+    if (existing) {
+      await vault.putSession(existing.id, raw);
+      await vault.deleteSession(id);
+      report.skipped.push({
+        id,
+        reason: `already known as ${existing.loginUsername} — session merged into that profile`,
+      });
+      continue;
+    }
+
     // Keep the vault key as the id, or the session would no longer be findable.
     const account: Account = createAccount(id, loginUsername, {
       gameName,
