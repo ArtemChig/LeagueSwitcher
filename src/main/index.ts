@@ -427,9 +427,16 @@ void app.whenReady().then(async () => {
       // warnings distinguish "there is no key" from "the key could not be read just now".
       if (!summary.ran) {
         const v = await getVault();
+        // Log WHICH file was consulted, not just the outcome. Three rounds of this were spent
+        // inferring that from timing; the path, its existence and its size settle it outright.
+        const { statSync: st, existsSync: ex } = await import("node:fs");
+        const size = (() => { try { return st(appPaths.secrets).size; } catch { return -1; } })();
         log.warn(
           `launch refresh skipped (${summary.skippedReason ?? "unknown"}); ` +
             `keyState=${v.getApiKey() ? "present" : "absent"}; ` +
+            `root=${appPaths.root}; secrets=${appPaths.secrets}; ` +
+            `exists=${ex(appPaths.secrets)}; size=${size}; ` +
+            `APPDATA=${process.env.APPDATA ?? "(unset)"}; ` +
             `vaultWarnings=${JSON.stringify(v.warnings.map((w) => `${w.kind}: ${w.detail ?? w.message}`))}`
         );
       }
