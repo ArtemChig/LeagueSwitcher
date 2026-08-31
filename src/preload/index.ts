@@ -8,7 +8,12 @@
  * having a bridge at all.
  */
 import { contextBridge, ipcRenderer } from "electron";
-import { SWITCH_PROGRESS_CHANNEL, type IpcApi, type SwitchProgressEvent } from "../shared/ipc.js";
+import {
+  ACCOUNTS_CHANGED_CHANNEL,
+  SWITCH_PROGRESS_CHANNEL,
+  type IpcApi,
+  type SwitchProgressEvent,
+} from "../shared/ipc.js";
 
 const invoke =
   <C extends keyof IpcApi>(channel: C) =>
@@ -47,6 +52,13 @@ const api = {
     const listener = (_e: unknown, payload: SwitchProgressEvent) => handler(payload);
     ipcRenderer.on(SWITCH_PROGRESS_CHANNEL, listener);
     return () => ipcRenderer.removeListener(SWITCH_PROGRESS_CHANNEL, listener);
+  },
+
+  /** Subscribe to "main changed the accounts". Returns an unsubscribe function. */
+  onAccountsChanged(handler: () => void): () => void {
+    const listener = () => handler();
+    ipcRenderer.on(ACCOUNTS_CHANGED_CHANNEL, listener);
+    return () => ipcRenderer.removeListener(ACCOUNTS_CHANGED_CHANNEL, listener);
   },
 };
 

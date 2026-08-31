@@ -94,6 +94,31 @@ export async function listRiotProcesses(names: readonly string[] = ALL_RIOT_PROC
     .filter((p) => Number.isInteger(p.pid) && p.pid > 0 && p.name.length > 0);
 }
 
+/**
+ * All three "is X running" answers from ONE enumeration.
+ *
+ * Each of these calls spawns a PowerShell process (~300ms), and the status endpoint the UI
+ * polls needs all three. Asking separately meant three spawns per poll — noticeable CPU for a
+ * question that one process listing already answers.
+ */
+export interface RunningState {
+  riotClient: boolean;
+  leagueClient: boolean;
+  game: boolean;
+  processes: RiotProcess[];
+}
+
+export async function getRunningState(): Promise<RunningState> {
+  const processes = await listRiotProcesses();
+  const has = (names: readonly string[]) => processes.some((p) => names.includes(p.name));
+  return {
+    riotClient: has(RIOT_CLIENT_PROCESSES),
+    leagueClient: has(LEAGUE_CLIENT_PROCESSES),
+    game: has([GAME_PROCESS]),
+    processes,
+  };
+}
+
 /** Is a game in progress? The one condition that makes a switch refuse rather than warn. */
 export async function isGameRunning(): Promise<boolean> {
   return (await listRiotProcesses([GAME_PROCESS])).length > 0;

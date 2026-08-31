@@ -22,6 +22,8 @@ export interface AccountView extends Account {
   tierKey: string;
   /** "DIAMOND IV" or "Unranked". */
   rankLabel: string;
+  /** Which queue rankLabel describes — a flex-only account must not be labelled solo/duo. */
+  rankQueue: "RANKED_SOLO_5x5" | "RANKED_FLEX_SR" | null;
   leaguePoints: number | null;
   wins: number;
   losses: number;
@@ -95,6 +97,9 @@ export type IpcChannel = keyof IpcApi;
 
 /** Progress events pushed from main to renderer during a switch. */
 export const SWITCH_PROGRESS_CHANNEL = "switch:progress";
+
+/** Pushed when main has changed account data behind the UI's back (e.g. the launch refresh). */
+export const ACCOUNTS_CHANGED_CHANNEL = "accounts:changed";
 
 export interface SwitchProgressEvent extends SwitchProgress {
   accountId: string;

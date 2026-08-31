@@ -54,9 +54,40 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     void reload();
-    // The launch refresh runs in main and can land after the first paint.
-    const timer = setInterval(() => void reload(), 5000);
-    return () => clearInterval(timer);
+
+    // Polling exists because the launch refresh runs in main and lands after the first paint,
+    // and because "is the Riot Client running" changes behind the app's back. It is kept at a
+    // slow cadence and paused while the window is hidden: each poll enumerates processes in
+    // main, and there is nothing to show while nobody is looking.
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      timer ??= setInterval(() => void reload(), 10_000);
+    };
+    const stop = () => {
+      if (timer) clearInterval(timer);
+      timer = null;
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) stop();
+      else {
+        void reload();
+        start();
+      }
+    };
+
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", onVisibility);
+
+    // Main pushes this when the launch refresh lands, so new data appears immediately rather
+    // than on the next poll.
+    const unsubscribe = window.api.onAccountsChanged(() => void reload());
+
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+      unsubscribe();
+    };
   }, [reload]);
 
   const refreshNow = useCallback(async () => {

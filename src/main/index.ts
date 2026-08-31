@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 
 import { appPaths, riotPaths } from "./riot/paths.js";
 import { readLockfile } from "./riot/lockfile.js";
-import { isGameRunning, isLeagueClientRunning, isRiotClientRunning } from "./riot/process.js";
+import { getRunningState, isGameRunning } from "./riot/process.js";
 import { readLoginState } from "./riot/rcApi.js";
 import { restoreSessionFromString } from "./riot/session.js";
 import { getAccountStore, regionFromPlatform, type Account } from "./store/accounts.js";
@@ -27,7 +27,13 @@ import { getDataDragonVersion, getProfileIcon, readCrestSvg } from "./assets/cac
 import { beginAssistedEnrolment, captureCurrentSession, preflightSwitch, switchToAccount } from "./switch/strategies.js";
 import { createBaselineBackup, hasBaseline, latestBaselineSessionFile } from "./store/backup.js";
 import { getLogger } from "./log/logger.js";
-import { SWITCH_PROGRESS_CHANNEL, type AccountView, type AppStatus, type RefreshOutcome } from "../shared/ipc.js";
+import {
+  ACCOUNTS_CHANGED_CHANNEL,
+  SWITCH_PROGRESS_CHANNEL,
+  type AccountView,
+  type AppStatus,
+  type RefreshOutcome,
+} from "../shared/ipc.js";
 
 const log = getLogger();
 const here = dirname(fileURLToPath(import.meta.url));
@@ -36,6 +42,17 @@ const isDev = !app.isPackaged;
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let lastRefreshAt: string | null = null;
+
+// ---------------------------------------------------------------- data locations
+//
+// Electron's default userData path is %APPDATA%\<productName>, which for this app is
+// %APPDATA%\LeagueSwitcher — exactly where the vault, sessions and backups live. Left alone,
+// Chromium scatters GPUCache, Code Cache, Local Storage, Network, Preferences and a dozen
+// other files straight into the directory holding secrets.enc, which makes "back up my app
+// data" and "what is this folder" both much worse answers than they should be.
+//
+// Must run before app.whenReady(): Chromium fixes these paths during startup.
+app.setPath("userData", join(appPaths.root, "chromium"));
 
 // ---------------------------------------------------------------- single instance
 
@@ -71,6 +88,7 @@ function toView(account: Account, activeId: string | null, hasSession: boolean, 
     ...account,
     tierKey: (solo?.tier ?? "unranked").toLowerCase(),
     rankLabel: ranked ? `${solo!.tier} ${solo!.rank}`.trim() : "Unranked",
+    rankQueue: ranked ? solo!.queue : null,
     leaguePoints: solo?.leaguePoints ?? null,
     wins,
     losses,
@@ -123,6 +141,8 @@ function registerIpc(): void {
     const store = getAccountStore();
     const vault = await getVault();
     const lock = readLockfile("riot-client");
+    // One process enumeration for all three answers — this endpoint is polled.
+    const running = await getRunningState();
 
     let signedInAs: string | null = null;
     let signedInAccountId: string | null = null;
@@ -140,9 +160,9 @@ function registerIpc(): void {
     }
 
     return {
-      riotClientRunning: await isRiotClientRunning(),
-      leagueClientRunning: await isLeagueClientRunning(),
-      gameRunning: await isGameRunning(),
+      riotClientRunning: running.riotClient,
+      leagueClientRunning: running.leagueClient,
+      gameRunning: running.game,
       signedInAs,
       signedInAccountId,
       hasApiKey: Boolean(vault.getApiKey()),
@@ -395,7 +415,7 @@ void app.whenReady().then(async () => {
       await collectForCurrentAccount();
       const summary = await refreshAllAccounts();
       if (summary.ran) lastRefreshAt = new Date().toISOString();
-      mainWindow?.webContents.send("accounts:changed");
+      mainWindow?.webContents.send(ACCOUNTS_CHANGED_CHANNEL);
       log.info(`launch refresh: ${summary.succeeded} ok, ${summary.failed} failed`);
     } catch (err) {
       log.warn("launch refresh failed", err);

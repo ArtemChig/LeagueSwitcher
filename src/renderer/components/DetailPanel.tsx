@@ -94,7 +94,7 @@ export function DetailPanel({ account, onClose, onSwitch, onReenrol, onDelete, o
   const stats: Array<[string, string]> = [
     ["Level", account.summonerLevel !== null ? String(account.summonerLevel) : "—"],
     ["Region", account.region ?? "—"],
-    ["Solo/duo", account.rankLabel],
+    [account.rankQueue === "RANKED_FLEX_SR" ? "Flex" : "Solo/duo", account.rankLabel],
     ["LP", account.leaguePoints !== null ? String(account.leaguePoints) : "—"],
     ["Record", account.wins + account.losses > 0 ? `${account.wins}W ${account.losses}L` : "No games"],
     ["Win rate", account.winRate !== null ? `${account.winRate}%` : "—"],
