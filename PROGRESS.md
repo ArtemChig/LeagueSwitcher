@@ -10,9 +10,9 @@ Only one task may be `DOING` at a time.
 
 ## Current state
 
-**Phase:** 1 — **COMPLETE** (P1.1-P1.7). Phase 0 complete bar P0.6 (BLOCKED, no credentials)
-**Next:** Phase 2 — data layer
-**Last updated:** 2026-08-31 10:55 — a real switch runs through the engine: `Switched via S1 in 12.8s`
+**Phase:** 2 — code COMPLETE (P2.1-P2.7); **gate P2.7 BLOCKED** (no API key, one account)
+**Next:** Phase 4 hardening, then Phase 3 UI
+**Last updated:** 2026-08-31 11:15 — Phase 2 built; 31 tests pass; gate blocked on the missing API key
 **Baseline backup exists:** ✅ YES — `%APPDATA%\LeagueSwitcher\backups\baseline-20260831-060859`
   (re-taken this run; the previously recorded one was gone — see "Blocked / failed")
 **Git:** initialised, history verified free of secrets. Commit locally, **never push**.
@@ -60,13 +60,13 @@ Only one task may be `DOING` at a time.
 
 | ID | Task | Status | Verified | Notes |
 |---|---|---|---|---|
-| P2.1 | `api/riotApi.ts` + rate limiter + routing tables | TODO | | Port `scripts/probes/riot-api-check.mjs` — routing tables already verified there |
-| P2.2 | `api/refreshAll.ts` launch-time parallel refresh | TODO | | One failure must not block others |
-| P2.3 | **Riot ID → puuid** resolution + key-fingerprint cache | TODO | | ⚠️ puuid is key-scoped; local puuid is NOT usable. See PLAN §4.2 |
-| P2.4 | `accounts.json` cache + schema version | TODO | | Render cached first |
-| P2.5 | Asset cache — icons, rank crests, ddragon pin | TODO | | Bundled crest fallback |
-| P2.6 | `enrich/collector.ts` LCU harvest | TODO | | Every endpoint optional |
-| P2.7 | External link builders | TODO | | **Phase gate:** all 4 test accounts populated on launch |
+| P2.1 | `api/riotApi.ts` + rate limiter + routing tables | **DONE** | 2026-08-31 11:12 | Both routing tables in `api/routing.ts`; limiter **parses** `x-app-rate-limit` rather than hardcoding, and trusts the server's usage count when it exceeds ours (another process may share the key). Key travels in `X-Riot-Token`, never the query string. **HTTP path verified live**: a deliberately invalid key returned `401 -> kind:"invalid-key"`, and the no-key path is a distinct kind. 16 unit tests |
+| P2.2 | `api/refreshAll.ts` launch-time parallel refresh | **DONE (unverified live)** | 2026-08-31 11:12 | Parallel across accounts; every account wrapped so a throw becomes that card's error state. Rank failure alone does not discard the level/icon already fetched. An empty league-v4 array is Unranked, not an error. ⚠️ Cannot be verified against live data — no API key on this machine |
+| P2.3 | **Riot ID → puuid** resolution + key-fingerprint cache | **DONE (unverified live)** | 2026-08-31 11:12 | Every cached puuid carries a fingerprint of the key that issued it; a mismatch forces re-resolution from the Riot ID. A puuid cached under another key is not stale but **wrong**, so this check runs before every other call. account-v1 404s retry once on the fallback regional route, because a mis-route and a missing player look identical |
+| P2.4 | `accounts.json` cache + schema version | **DONE** | 2026-08-31 11:12 | `store/accounts.ts`, schema v1, atomic writes, nothing sensitive in it — so the UI can render it instantly without decrypting anything. A corrupt file is set aside, not deleted; it costs metadata, never credentials or sessions |
+| P2.5 | Asset cache — icons, rank crests, ddragon pin | **DONE — verified** | 2026-08-31 11:05 | Version pinned (re-checked at most daily) at `16.17.1`. **All 11 crests downloaded and bundled** into `assets/crests/`. `diamond.svg` confirmed shipping `#8141EB` and patched to `#4C6FD9` — verified in the output file. All viewBoxes (17x12..20x20) normalised to `0 0 20 20`, and intrinsic width/height stripped from **every** tier so CSS sizing behaves identically per rank. Cache -> network -> bundled fallback |
+| P2.6 | `enrich/collector.ts` LCU harvest | **DONE — verified** | 2026-08-31 11:15 | Ran live: Riot Client available, League not running -> reported as an expected state, not an error, and `sessionHealth` still updated. Matches the signed-in account by local puuid, falling back to login username. While League IS open the LCU also supplies ranked data, which fills the one gap a missing API key leaves |
+| P2.7 | External link builders | **DONE — verified** | 2026-08-31 11:10 | op.gg / u.gg / DeepLoL / Porofessor, verified rendering for a Riot ID containing a space (percent-encoded, or every link 404s). **Caught a real bug:** u.gg takes a platform host while the others take a region slug; building it as `${slug}1` gives `na1` and `euw1` correctly but `kr1`, `ru1` and `lan1`, none of which exist. Now looked up properly, with a regression test. ⚠️ **PHASE GATE NOT MET** — see below |
 
 ## Phase 3 — UI
 
@@ -144,6 +144,25 @@ Only one task may be `DOING` at a time.
    over ~15 minutes. Watch whether a stored session still logs in after days, not minutes.
 
 ## Blocked / failed
+
+### P2.7 phase gate NOT met — 2026-08-31 11:15
+
+The written gate is *"launching the app populates all four test accounts (NA and LAN) with live
+rank, level and icon"*. It cannot be met on this machine tonight, for two independent reasons:
+
+1. **No API key.** `riot-api-key.txt` is gone, so no public-API call can be made at all. The
+   code paths are built and the transport is verified (a deliberately bogus key returns
+   `401 -> invalid-key`, and the no-key path is a distinct state), but no live rank was fetched.
+2. **One account, not four.** Only `accountOne` is enrolled, and the other three cannot be
+   enrolled without credentials.
+
+What *is* verified without a key, and what makes this less severe than it reads: level, profile
+icon, Riot ID, login username and region all come from the **Riot Client itself**, so a card is
+populated except for rank and match history. That is the degradation PLAN §8 requires, and it
+was exercised — `npm run cli -- refresh` with no key reports the situation and changes nothing.
+
+To close the gate in the morning: store a key (`npm run cli -- api-key <RGAPI-...>`), then
+`npm run cli -- refresh`.
 
 ### ⚠️ 2026-08-31 06:08 — `%APPDATA%\LeagueSwitcher\` did not exist at run start
 

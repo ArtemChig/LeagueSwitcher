@@ -36,6 +36,10 @@ import {
   switchToAccount,
   type SwitchProgress,
 } from "../src/main/switch/strategies.js";
+import { refreshAllAccounts } from "../src/main/api/refreshAll.js";
+import { collectForCurrentAccount, refreshSessionHealth } from "../src/main/enrich/collector.js";
+import { buildExternalLinks } from "../src/main/api/links.js";
+import { getDataDragonVersion, getRankCrest, warmCache } from "../src/main/assets/cache.js";
 import { redact } from "../src/main/log/redact.js";
 import { existsSync } from "node:fs";
 
@@ -321,6 +325,107 @@ async function cmdForget(): Promise<number> {
   return 0;
 }
 
+async function cmdRefresh(): Promise<number> {
+  const store = getAccountStore();
+  const only = positional[0] ? store.find(positional[0]) : null;
+  if (positional[0] && !only) {
+    say(`No account matches "${positional[0]}".`);
+    return 1;
+  }
+
+  say("Refreshing from the public Riot API…\n");
+  const summary = await refreshAllAccounts({
+    ...(only ? { accountIds: [only.id] } : {}),
+    onAccountDone: (r) => {
+      const flags: string[] = [];
+      if (r.resolvedPuuid) flags.push("resolved puuid");
+      if (r.renamed) flags.push("RENAMED");
+      say(
+        `  ${r.ok ? "ok  " : "FAIL"} ${r.accountId.padEnd(22)} ${((r.elapsedMs / 1000).toFixed(1) + "s").padStart(6)}` +
+          `${flags.length ? "  " + flags.join(", ") : ""}${r.error ? `  ${r.error}` : ""}`
+      );
+    },
+  });
+
+  say("");
+  if (!summary.ran) {
+    if (summary.skippedReason === "no-key") {
+      say("No Riot API key is configured, so rank and match history cannot be fetched.");
+      say("Everything else on a card — Riot ID, login username, region, level, profile icon —");
+      say("comes from the Riot Client itself and is already up to date.");
+      say("");
+      say("Add one with:  npm run cli -- api-key <RGAPI-…>");
+      return 0;
+    }
+    say("No accounts to refresh. Enrol one first.");
+    return 0;
+  }
+
+  say(`${summary.succeeded} refreshed, ${summary.failed} failed, in ${(summary.elapsedMs / 1000).toFixed(1)}s`);
+  return summary.failed > 0 && summary.succeeded === 0 ? 1 : 0;
+}
+
+async function cmdLinks(): Promise<number> {
+  const store = getAccountStore();
+  const accounts = positional[0] ? [store.find(positional[0])].filter(Boolean) : store.list();
+  if (accounts.length === 0) {
+    say("No matching accounts.");
+    return 1;
+  }
+  for (const a of accounts as Account[]) {
+    say(`${a.gameName ? `${a.gameName}#${a.tagLine}` : a.loginUsername}  (${a.region ?? "?"})`);
+    const links = buildExternalLinks({ gameName: a.gameName, tagLine: a.tagLine, region: a.region, platformId: a.platformId });
+    if (links.length === 0) say("  no Riot ID yet — switch to this account once to learn it");
+    for (const l of links) say(`  ${l.label.padEnd(12)} ${l.url}`);
+    say("");
+  }
+  return 0;
+}
+
+async function cmdAssets(): Promise<number> {
+  const store = getAccountStore();
+  const version = await getDataDragonVersion();
+  say(`Data Dragon version: ${version}`);
+
+  const icons = store.list().map((a) => a.profileIconId).filter((id): id is number => typeof id === "number");
+  const tiers = store
+    .list()
+    .flatMap((a) => a.ranked.map((r) => r.tier.toLowerCase()))
+    .concat("unranked");
+
+  say(`Warming cache: ${icons.length} icon(s), ${new Set(tiers).size} tier(s)…`);
+  const warmed = await warmCache(icons, tiers);
+  say(`  ${warmed.icons} icon(s) and ${warmed.crests} crest(s) available`);
+
+  const crest = await getRankCrest("diamond");
+  say(`  diamond crest: ${crest.source} (${crest.path})`);
+  return 0;
+}
+
+async function cmdCollect(): Promise<number> {
+  say("Collecting from the local clients (no API key needed)…\n");
+  const result = await collectForCurrentAccount();
+
+  say(`  Riot Client : ${result.fromRiotClient ? "available" : "not available"}`);
+  say(`  League (LCU): ${result.fromLcu ? "available" : "not available"}`);
+  say(`  account     : ${result.accountId ?? "(not identified)"}`);
+  if (result.updated.length) say(`  updated     : ${[...new Set(result.updated)].join(", ")}`);
+  for (const n of result.notes) say(`  note: ${n}`);
+
+  if (result.lcu) {
+    const h = result.lcu;
+    say("");
+    say(`  BE ${h.blueEssence ?? "?"}  RP ${h.riotPoints ?? "?"}  honour ${h.honorLevel ?? "?"}  champions ${h.ownedChampions ?? "?"}  loot ${h.lootCount ?? "?"}`);
+  }
+
+  const vault = await getVault();
+  say("\n== session health ==");
+  for (const h of await refreshSessionHealth((id) => vault.hasSession(id))) {
+    say(`  ${h.accountId.padEnd(22)} ${h.health}`);
+  }
+  return 0;
+}
+
 function cmdHelp(): number {
   say("LeagueSwitcher engine CLI\n");
   say("  status                 what is running, which session is on disk, who is signed in");
@@ -331,6 +436,10 @@ function cmdHelp(): number {
   say("  health                 environment, vault and per-account diagnostics");
   say("  vault                  what the vault holds (never its contents)");
   say("  api-key [<key>]        store or clear the Riot API key");
+  say("  refresh [<who>]        pull level, rank and renames from the public Riot API");
+  say("  collect                harvest from the local clients — no API key needed");
+  say("  links [<who>]          op.gg / u.gg / DeepLoL / Porofessor URLs");
+  say("  assets                 pin the Data Dragon version and warm the icon/crest cache");
   say("  forget <who> --yes     delete an account's session and password");
   return 0;
 }
@@ -347,6 +456,10 @@ const commands: Record<string, () => Promise<number> | number> = {
   health: cmdHealth,
   vault: cmdVault,
   "api-key": cmdApiKey,
+  refresh: cmdRefresh,
+  collect: cmdCollect,
+  links: cmdLinks,
+  assets: cmdAssets,
   forget: cmdForget,
   help: cmdHelp,
 };
