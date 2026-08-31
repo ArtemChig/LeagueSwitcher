@@ -108,6 +108,38 @@ export async function isRiotClientRunning(): Promise<boolean> {
   return (await listRiotProcesses(RIOT_CLIENT_PROCESSES)).length > 0;
 }
 
+/**
+ * Riot Vanguard, the anti-cheat. `vgc` is the user-mode service and `vgk` the kernel driver.
+ *
+ * Vanguard does not prevent a session swap — it is not watching the Riot Client's config files
+ * — but it is worth reporting, for two reasons. It holds the game process open in ways that
+ * make a "did League really close?" check ambiguous, and if a switch ever does misbehave while
+ * it is active, the user needs to know it was running rather than guessing afterwards.
+ */
+export interface VanguardStatus {
+  serviceRunning: boolean;
+  driverLoaded: boolean;
+  /** True if either is up. */
+  active: boolean;
+}
+
+export async function getVanguardStatus(): Promise<VanguardStatus> {
+  const script =
+    "$svc = Get-Service -Name 'vgc' -ErrorAction SilentlyContinue; " +
+    "$drv = Get-Service -Name 'vgk' -ErrorAction SilentlyContinue; " +
+    '"$(if ($svc) { $svc.Status } else { \'absent\' })|$(if ($drv) { $drv.Status } else { \'absent\' })"';
+
+  try {
+    const out = (await powershell(script)).trim();
+    const [service = "absent", driver = "absent"] = out.split("|");
+    const serviceRunning = service.trim().toLowerCase() === "running";
+    const driverLoaded = driver.trim().toLowerCase() === "running";
+    return { serviceRunning, driverLoaded, active: serviceRunning || driverLoaded };
+  } catch {
+    return { serviceRunning: false, driverLoaded: false, active: false };
+  }
+}
+
 export interface KillReport {
   requested: string[];
   running: RiotProcess[];

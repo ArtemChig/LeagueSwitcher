@@ -33,15 +33,17 @@ import { isAvailable as dpapiAvailable } from "../src/main/store/dpapi.js";
 import {
   beginAssistedEnrolment,
   captureCurrentSession,
+  preflightSwitch,
   switchToAccount,
   type SwitchProgress,
 } from "../src/main/switch/strategies.js";
+import { exportVault, importVault, looksLikeVaultExport } from "../src/main/store/portableVault.js";
 import { refreshAllAccounts } from "../src/main/api/refreshAll.js";
 import { collectForCurrentAccount, refreshSessionHealth } from "../src/main/enrich/collector.js";
 import { buildExternalLinks } from "../src/main/api/links.js";
 import { getDataDragonVersion, getRankCrest, warmCache } from "../src/main/assets/cache.js";
 import { redact } from "../src/main/log/redact.js";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 const say = (...parts: unknown[]) => console.log(parts.map((p) => redact(p)).join(" "));
 
@@ -426,6 +428,87 @@ async function cmdCollect(): Promise<number> {
   return 0;
 }
 
+async function cmdPreflight(): Promise<number> {
+  const target = positional[0];
+  const store = getAccountStore();
+  const account = target ? store.find(target) : store.list()[0];
+  if (!account) {
+    say("No account to check. Enrol one first.");
+    return 1;
+  }
+
+  say(`Preflight for ${account.loginUsername}:\n`);
+  const pre = await preflightSwitch(account.id);
+
+  for (const b of pre.blockers) say(`  BLOCKED   ${b.message}`);
+  for (const c of pre.confirmations) say(`  CONFIRM   ${c.message}`);
+  for (const n of pre.notes) say(`  note      ${n}`);
+  if (pre.blockers.length + pre.confirmations.length + pre.notes.length === 0) {
+    say("  nothing in the way");
+  }
+
+  say("");
+  say(`  Vanguard: service ${pre.vanguard.serviceRunning ? "running" : "stopped"}, ` +
+      `driver ${pre.vanguard.driverLoaded ? "loaded" : "not loaded"}`);
+  say(`  => ${pre.canSwitch ? "can switch" : "CANNOT switch"}`);
+  return pre.canSwitch ? 0 : 1;
+}
+
+async function cmdExport(): Promise<number> {
+  const file = positional[0];
+  const passphrase = flagValue("passphrase") ?? process.env.LEAGUESWITCHER_PASSPHRASE ?? null;
+  if (!file || !passphrase) {
+    say("usage: npm run cli -- export <file> --passphrase <passphrase>");
+    say("");
+    say("Writes an AES-256-GCM file readable on another machine. The everyday vault is");
+    say("DPAPI-encrypted and deliberately cannot be — it is bound to this Windows account.");
+    return 2;
+  }
+
+  const vault = await getVault();
+  const blob = await exportVault(vault, passphrase);
+  writeFileSync(file, blob);
+  say(`Exported ${blob.length} bytes to ${file}`);
+  say("Keep it somewhere safe: it holds every password and session you have stored.");
+  return 0;
+}
+
+async function cmdImport(): Promise<number> {
+  const file = positional[0];
+  const passphrase = flagValue("passphrase") ?? process.env.LEAGUESWITCHER_PASSPHRASE ?? null;
+  if (!file || !passphrase) {
+    say("usage: npm run cli -- import <file> --passphrase <passphrase> [--overwrite]");
+    return 2;
+  }
+  if (!existsSync(file)) {
+    say(`No such file: ${file}`);
+    return 1;
+  }
+
+  const data = readFileSync(file);
+  if (!looksLikeVaultExport(data)) {
+    say("That is not a LeagueSwitcher vault export.");
+    return 1;
+  }
+
+  const vault = await getVault();
+  try {
+    const result = await importVault(vault, data, passphrase, { overwrite: flags.has("--overwrite") });
+    say(`Imported from an export taken ${result.exportedAt}`);
+    say(`  credentials : ${result.credentialsImported}`);
+    say(`  sessions    : ${result.sessionsImported}`);
+    say(`  API key     : ${result.apiKeyImported ? "imported" : "kept the existing one"}`);
+    if (result.skipped.length) {
+      say(`  skipped     : ${result.skipped.join(", ")}`);
+      say("                (re-run with --overwrite to replace them)");
+    }
+    return 0;
+  } catch (err) {
+    say(`FAILED: ${(err as Error).message}`);
+    return 1;
+  }
+}
+
 function cmdHelp(): number {
   say("LeagueSwitcher engine CLI\n");
   say("  status                 what is running, which session is on disk, who is signed in");
@@ -440,6 +523,9 @@ function cmdHelp(): number {
   say("  collect                harvest from the local clients — no API key needed");
   say("  links [<who>]          op.gg / u.gg / DeepLoL / Porofessor URLs");
   say("  assets                 pin the Data Dragon version and warm the icon/crest cache");
+  say("  preflight [<who>]      what would stop a switch right now");
+  say("  export <file> --passphrase <p>   portable encrypted backup of the vault");
+  say("  import <file> --passphrase <p>   restore one [--overwrite]");
   say("  forget <who> --yes     delete an account's session and password");
   return 0;
 }
@@ -457,6 +543,9 @@ const commands: Record<string, () => Promise<number> | number> = {
   vault: cmdVault,
   "api-key": cmdApiKey,
   refresh: cmdRefresh,
+  preflight: cmdPreflight,
+  export: cmdExport,
+  import: cmdImport,
   collect: cmdCollect,
   links: cmdLinks,
   assets: cmdAssets,

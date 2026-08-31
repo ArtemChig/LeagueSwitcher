@@ -10,9 +10,9 @@ Only one task may be `DOING` at a time.
 
 ## Current state
 
-**Phase:** 2 — code COMPLETE (P2.1-P2.7); **gate P2.7 BLOCKED** (no API key, one account)
-**Next:** Phase 4 hardening, then Phase 3 UI
-**Last updated:** 2026-08-31 11:15 — Phase 2 built; 31 tests pass; gate blocked on the missing API key
+**Phase:** 4 — **COMPLETE** (P4.1-P4.6). Phases 0/1/2 done; gates P0.6 and P2.7 blocked on missing files
+**Next:** Phase 3 — UI, then Phase 5 packaging
+**Last updated:** 2026-08-31 11:32 — Phase 4 hardening done; 82 tests pass
 **Baseline backup exists:** ✅ YES — `%APPDATA%\LeagueSwitcher\backups\baseline-20260831-060859`
   (re-taken this run; the previously recorded one was gone — see "Blocked / failed")
 **Git:** initialised, history verified free of secrets. Commit locally, **never push**.
@@ -85,12 +85,12 @@ Only one task may be `DOING` at a time.
 
 | ID | Task | Status | Verified | Notes |
 |---|---|---|---|---|
-| P4.1 | Log redaction + tests | TODO | | |
+| P4.1 | Log redaction + tests | **DONE — verified** | 2026-08-31 11:28 | `log/redact.ts` (registered secrets + shape patterns) and `log/logger.ts`, which has **no bypass** — every path to disk goes through `redact()`. 24 tests: 14 on the scrubber, 10 writing through the real logger to a real file and then grepping the bytes, which is the property that actually matters. Covers a token in the message, in a context object, inside a thrown Error, and as a whole session dump |
 | P4.2 | Secret-scan hook | **DONE** | 2026-08-31 | `scripts/scan-secrets.mjs` + `.git/hooks/pre-commit`. Verified: blocks planted key AND password |
-| P4.3 | Edge cases (in-game, Vanguard, offline) | TODO | | |
-| P4.4 | Session-health checker | TODO | | |
-| P4.5 | Vault export/import | TODO | | |
-| P4.6 | Vitest coverage | TODO | | |
+| P4.3 | Edge cases (in-game, Vanguard, offline) | **DONE — verified** | 2026-08-31 11:30 | `preflightSwitch()` returns structured blockers / confirmations / notes so the UI can grey out a card without starting anything; the switch re-checks rather than trusting it. Game in progress = refused outright; League client open = needs confirmation; missing or device-bound stored token = blocked before anything is touched. **Vanguard detection verified live** — correctly reported `service stopped, driver loaded` on this machine. Offline is handled by the API layer's typed `network` failure kind |
+| P4.4 | Session-health checker | **DONE — verified** | 2026-08-31 11:20 | `refreshSessionHealth()` in `enrich/collector.ts`, driven by the vault rather than the network: no stored session = `missing` (the card must say so before the user clicks and fails), under 30 days left = `stale`. Ran live -> `accountone valid`. Sessions last ~453 days, so `stale` means the account has not been used in well over a year |
+| P4.5 | Vault export/import | **DONE — verified** | 2026-08-31 11:32 | `store/portableVault.ts`. DPAPI is deliberately non-portable, so an export needs its own scheme: AES-256-GCM under a scrypt-derived passphrase key (N=2^15), random salt and IV per export, GCM so tampering fails loudly rather than decrypting into rubbish that overwrites a working vault. Import does **not** overwrite by default. **Verified end-to-end via the CLI**: 4013-byte file, correct header, no plaintext, wrong passphrase rejected. Test export deleted afterwards — it held the real session |
+| P4.6 | Vitest coverage | **DONE** | 2026-08-31 11:32 | **82 tests, all passing**, across redaction (14), logger-to-disk (10), session parse/validate/restore/diff (17), vault + portable export (24), routing / rate limiter / links (17). The vault tests hit **real DPAPI** rather than a mock — mocking the encryption would leave the one thing worth proving untested. Typecheck clean under `strict` + `noUncheckedIndexedAccess` |
 
 ## Phase 5 — Packaging
 

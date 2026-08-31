@@ -19,11 +19,14 @@
  */
 import { readLockfile, waitForLockfile } from "../riot/lockfile.js";
 import {
+  getVanguardStatus,
   isGameRunning,
   isLeagueClientRunning,
   launchRiotClient,
   shutdownRiot,
+  type VanguardStatus,
 } from "../riot/process.js";
+import { existsSync } from "node:fs";
 import { riotPaths } from "../riot/paths.js";
 import {
   captureSession,
@@ -89,6 +92,102 @@ export interface SwitchResult {
 }
 
 const noop: ProgressFn = () => {};
+
+/**
+ * P4.3 — everything that could stop or complicate a switch, gathered before one starts.
+ *
+ * Separate from `switchToAccount` so the UI can grey out a card, or word its confirmation
+ * dialog properly, without starting anything. The switch itself re-checks the blocking
+ * conditions rather than trusting a preflight that may be seconds stale.
+ */
+export interface Preflight {
+  /** Hard stop — the switch will be refused. */
+  canSwitch: boolean;
+  blockers: Array<{ code: "game-in-progress" | "not-enrolled" | "bad-session" | "riot-missing"; message: string }>;
+  /** Needs an explicit yes, but is not a refusal. */
+  confirmations: Array<{ code: "client-running"; message: string }>;
+  /** Worth saying, but nothing stops. */
+  notes: string[];
+  vanguard: VanguardStatus;
+}
+
+export async function preflightSwitch(accountId: string): Promise<Preflight> {
+  const store = getAccountStore();
+  const vault = await getVault();
+
+  const result: Preflight = {
+    canSwitch: true,
+    blockers: [],
+    confirmations: [],
+    notes: [],
+    vanguard: { serviceRunning: false, driverLoaded: false, active: false },
+  };
+
+  if (!existsSync(riotPaths.rcServices)) {
+    result.blockers.push({
+      code: "riot-missing",
+      message: `RiotClientServices.exe was not found at ${riotPaths.rcServices}.`,
+    });
+  }
+
+  if (await isGameRunning()) {
+    result.blockers.push({
+      code: "game-in-progress",
+      message: "A game is in progress. Switching would disconnect you from it.",
+    });
+  }
+
+  const account = store.get(accountId);
+  if (!account) {
+    result.blockers.push({ code: "not-enrolled", message: `No account with id "${accountId}".` });
+  } else {
+    const stored = await vault.getSession(accountId);
+    if (!stored) {
+      result.blockers.push({
+        code: "not-enrolled",
+        message: `${account.loginUsername} has no stored session. Enrol it before switching.`,
+      });
+    } else {
+      // Validate the decrypted content without writing it anywhere.
+      const secrets = parseSecretsFromYaml(stored);
+      if (!secrets.refreshToken || secrets.refreshToken.length < 100) {
+        result.blockers.push({
+          code: "bad-session",
+          message: `${account.loginUsername}'s stored session has no usable token — re-enrol it.`,
+        });
+      }
+      if (secrets.isDpopBound) {
+        result.blockers.push({
+          code: "bad-session",
+          message: `${account.loginUsername}'s token is device-bound and will not transfer.`,
+        });
+      }
+    }
+
+    if (account.sessionDaysRemaining !== null && account.sessionDaysRemaining < 30) {
+      result.notes.push(
+        `${account.loginUsername}'s session expires in ${account.sessionDaysRemaining} days — switch to it soon or re-enrol.`
+      );
+    }
+  }
+
+  if (await isLeagueClientRunning()) {
+    const activeId = store.getActiveId();
+    const activeName = activeId ? (store.get(activeId)?.loginUsername ?? activeId) : "the current account";
+    result.confirmations.push({
+      code: "client-running",
+      message: `The League client is open. ${activeName} will be signed out.`,
+    });
+  }
+
+  result.vanguard = await getVanguardStatus();
+  if (result.vanguard.active) {
+    result.notes.push("Riot Vanguard is running. It does not block a switch, but League may need a reboot to launch.");
+  }
+
+  result.canSwitch = result.blockers.length === 0;
+  return result;
+}
 
 /**
  * Switch to an enrolled account.
