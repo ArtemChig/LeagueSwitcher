@@ -193,3 +193,44 @@ when the run began.
 3. **Zustand and `electron-vite` were both dropped**, the first as unnecessary and the second
    because it peer-requires `vite@7` while `vitest@4` requires `vite@8`. All four deviations are
    written up in `PROGRESS.md` under "Deviations from PLAN.md".
+
+---
+
+## Correction — added 2026-08-31 morning, after verification
+
+**The two "open items" above were phantom. Both are resolved; neither needed the user.**
+
+`%APPDATA%\LeagueSwitcher\` existed the whole time, with the API key and test credentials in it.
+Verified by mtime — both files were untouched from when they were written the previous evening:
+
+```
+riot-api-key.txt        42 bytes   mtime 2026-08-31 05:43:41
+test-credentials.json 1388 bytes   mtime 2026-08-31 05:20:22
+```
+
+**Root cause:** the run searched `%LOCALAPPDATA%` (`AppData\Local`). The data directory is in
+`%APPDATA%` (`AppData\Roaming`). On Windows those are different directories; the probe found
+nothing and concluded the files were absent rather than that it had looked in the wrong place.
+
+**Lesson for future runs:** "not found" is a claim about the search, not about the world. When a
+file the ledger says exists appears to be missing, verify the path resolution before recording it
+as missing — and never re-take a baseline over one that may already exist.
+
+### Now verified working
+
+- `riot-api-check.mjs` — 7/7 pass against the live API
+- API key migrated into the DPAPI vault; plaintext file superseded
+- `cli refresh` resolved the puuid and pulled live rank:
+  `SUMMONER ONE#TAG1  accountOne  NA  lvl 33  BRONZE I 5 LP  13W/10L`
+- `cli health` — all green
+- `npm run ui-check` — all checks pass, real data renders
+
+### Genuinely still open
+
+Only one thing: **three of the four test accounts are not enrolled.** That needs a human for the
+captcha, so it could not have been done overnight regardless.
+
+### Known cosmetic bug
+
+The Riot ID truncates on the account card — `SUMMONER ONE#...` — because the tag is not given
+room to stay visible when the name is long. The detail panel renders it correctly.
