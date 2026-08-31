@@ -22,6 +22,7 @@ import { getAccountStore, regionFromPlatform, type Account } from "./store/accou
 import { getVault } from "./store/vault.js";
 import { refreshAllAccounts } from "./api/refreshAll.js";
 import { adoptOrphanSessions } from "./store/adopt.js";
+import { compareForRankSort } from "./store/ordering.js";
 import { buildExternalLinks } from "./api/links.js";
 import { collectForCurrentAccount, refreshSessionHealth } from "./enrich/collector.js";
 import { getDataDragonVersion, getProfileIcon, readCrestSvg } from "./assets/cache.js";
@@ -73,10 +74,6 @@ if (!app.requestSingleInstanceLock()) {
 // ---------------------------------------------------------------- view model
 
 /** Tier ordering, best first — used for the "sort by rank" mode. */
-const TIER_ORDER = [
-  "CHALLENGER", "GRANDMASTER", "MASTER", "DIAMOND", "EMERALD",
-  "PLATINUM", "GOLD", "SILVER", "BRONZE", "IRON",
-];
 
 function toView(account: Account, activeId: string | null, hasSession: boolean, hasPassword: boolean): AccountView {
   const solo = account.ranked.find((r) => r.queue === "RANKED_SOLO_5x5") ?? account.ranked[0] ?? null;
@@ -123,14 +120,7 @@ async function buildAccountViews(): Promise<AccountView[]> {
     .map((a) => toView(a, activeId, vault.hasSession(a.id), vault.hasCredential(a.id)));
 
   // Active account pinned to the top (PLAN §5), then by rank.
-  return views.sort((a, b) => {
-    if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
-    const ai = TIER_ORDER.indexOf(a.rankLabel.split(" ")[0] ?? "");
-    const bi = TIER_ORDER.indexOf(b.rankLabel.split(" ")[0] ?? "");
-    const aRank = ai < 0 ? 99 : ai;
-    const bRank = bi < 0 ? 99 : bi;
-    return aRank - bRank || a.riotIdLabel.localeCompare(b.riotIdLabel);
-  });
+  return views.sort(compareForRankSort);
 }
 
 // ---------------------------------------------------------------- IPC
@@ -239,6 +229,18 @@ function registerIpc(): void {
         mainWindow?.webContents.send(SWITCH_PROGRESS_CHANNEL, { ...progress, accountId: username });
       },
     });
+    // Pull the new account's rank and level immediately. Without this a freshly enrolled
+    // account sits on the grid as Unranked until the user happens to press Refresh, which
+    // looks like the enrolment half-failed.
+    if (result.ok && result.accountId) {
+      try {
+        await refreshAllAccounts({ accountIds: [result.accountId] });
+      } catch (err) {
+        log.warn("post-enrolment refresh failed", err);
+      }
+      mainWindow?.webContents.send(ACCOUNTS_CHANGED_CHANNEL);
+    }
+
     return {
       ok: result.ok,
       ...(result.accountId ? { accountId: result.accountId } : {}),

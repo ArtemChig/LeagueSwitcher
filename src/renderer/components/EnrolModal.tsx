@@ -8,7 +8,7 @@
  *     is offered first and pre-selected whenever a signed-in account is not yet enrolled.
  *
  *   Assisted — the S4 ladder rung that cannot break. The client is signed out, the username is
- *     prefilled, and the user completes the sign-in including the captcha. The moment the
+ *     on the clipboard, and the user completes the sign-in including the captcha. The moment the
  *     client reports a session it is captured.
  *
  * There is deliberately no "type your password and we'll log you in" route here. Riot issues an

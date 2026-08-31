@@ -209,8 +209,24 @@ export async function setRegionLocale(lock: Lockfile, region: string, locale = "
  * Prefill the username on the client's login screen — the S4 assisted-enrolment path, where
  * the user completes the captcha themselves.
  */
-export async function setAuthHint(lock: Lockfile, username: string): Promise<boolean> {
-  const res = await callLocalApi(lock, "POST", "/rso-auth/v1/auth-hints/hint", { body: { hint: username } });
+/**
+ * ⚠️ NOT a username prefill, despite the name reading like one.
+ *
+ * `/rso-auth/v1/auth-hints/hint` takes { context, required, type } where type is one of
+ * email_verification | password_reset | parental_consent | ambiguous_username |
+ * alias_change_required. It was previously called with { hint: username } to "prefill the
+ * sign-in field", which silently did nothing — the body did not even match the schema.
+ *
+ * Nothing in the client's API populates the sign-in form; it is a webview. Assisted enrolment
+ * puts the username on the clipboard instead.
+ */
+export async function setAuthHint(
+  lock: Lockfile,
+  hint: { type: string; required?: boolean; context?: Record<string, unknown> }
+): Promise<boolean> {
+  const res = await callLocalApi(lock, "POST", "/rso-auth/v1/auth-hints/hint", {
+    body: { type: hint.type, required: hint.required ?? false, context: hint.context ?? {} },
+  });
   return res.ok;
 }
 

@@ -41,7 +41,6 @@ import {
 import {
   injectRefreshToken,
   readLoginState,
-  setAuthHint,
   waitForAuthenticated,
   type LoginState,
 } from "../riot/rcApi.js";
@@ -582,12 +581,29 @@ export async function beginAssistedEnrolment(
   const lock = await waitForLockfile("riot-client", { timeoutMs: 120_000 });
   if (!lock) return { ok: false, error: "The Riot Client did not start." };
 
-  // Prefill the username so the user only has to type a password and clear the captcha.
-  await setAuthHint(lock, username).catch(() => false);
+  // No prefill is possible.
+  //
+  // This used to POST the username to /rso-auth/v1/auth-hints/hint and promise the field would
+  // be filled in. That endpoint has nothing to do with usernames: its body is
+  // { context, required, type } where type is one of email_verification, password_reset,
+  // parental_consent, ambiguous_username, alias_change_required. Nothing in the client's API
+  // populates the sign-in form, which is a webview.
+  //
+  // So the username goes to the clipboard instead and the message says what is actually true.
+  let copied = false;
+  try {
+    const { clipboard } = await import("electron");
+    clipboard.writeText(username);
+    copied = true;
+  } catch {
+    // Not running under Electron (the CLI). The message below still names the username.
+  }
 
   onProgress({
     step: "waiting-for-login",
-    message: `Sign in as ${username} in the Riot Client — the session will be captured automatically`,
+    message: copied
+      ? `Sign in as ${username} — it is on your clipboard, so paste it. The session is captured automatically.`
+      : `Sign in as ${username} in the Riot Client — the session will be captured automatically`,
   });
 
   const auth = await waitForAuthenticated(lock, { timeoutMs, intervalMs: 2000 });
