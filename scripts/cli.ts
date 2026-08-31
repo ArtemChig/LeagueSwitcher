@@ -30,6 +30,7 @@ import { appPaths, riotPaths } from "../src/main/riot/paths.js";
 import { getAccountStore, type Account } from "../src/main/store/accounts.js";
 import { getVault } from "../src/main/store/vault.js";
 import { isAvailable as dpapiAvailable } from "../src/main/store/dpapi.js";
+import { adoptOrphanSessions } from "../src/main/store/adopt.js";
 import {
   beginAssistedEnrolment,
   captureCurrentSession,
@@ -518,6 +519,7 @@ function cmdHelp(): number {
   say("  enrol <username>       assisted sign-in, then capture");
   say("  health                 environment, vault and per-account diagnostics");
   say("  vault                  what the vault holds (never its contents)");
+  say("  adopt                  rebuild profiles for stored sessions that lost theirs");
   say("  api-key [<key>]        store or clear the Riot API key");
   say("  refresh [<who>]        pull level, rank and renames from the public Riot API");
   say("  collect                harvest from the local clients — no API key needed");
@@ -532,6 +534,30 @@ function cmdHelp(): number {
 
 // ---------------------------------------------------------------- dispatch
 
+
+async function cmdAdopt(): Promise<number> {
+  const report = await adoptOrphanSessions();
+
+  if (report.adopted.length === 0 && report.skipped.length === 0) {
+    say("Every stored session already has a profile — nothing to adopt.");
+    return 0;
+  }
+
+  for (const a of report.adopted) {
+    say(`Adopted ${a.riotId ?? a.id}`);
+    say(`  id             : ${a.id}`);
+    say(`  login username : ${a.loginUsername}`);
+    say(`  platform       : ${a.platformId ?? "unknown"}${a.region ? ` (${a.region})` : ""}`);
+  }
+  for (const s of report.skipped) say(`Skipped ${s.id}: ${s.reason}`);
+
+  if (report.adopted.length > 0) {
+    say("");
+    say("Run  npm run cli -- refresh  to pull their rank and level.");
+  }
+  return 0;
+}
+
 const commands: Record<string, () => Promise<number> | number> = {
   status: cmdStatus,
   list: cmdList,
@@ -541,6 +567,7 @@ const commands: Record<string, () => Promise<number> | number> = {
   enroll: cmdEnrol,
   health: cmdHealth,
   vault: cmdVault,
+  adopt: cmdAdopt,
   "api-key": cmdApiKey,
   refresh: cmdRefresh,
   preflight: cmdPreflight,

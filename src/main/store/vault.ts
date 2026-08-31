@@ -17,7 +17,7 @@
  *   - A vault that fails to decrypt is preserved, not deleted. It is renamed aside so the user
  *     can recover it, and the app carries on with an empty vault rather than refusing to start.
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { appPaths } from "../riot/paths.js";
 import { registerSecret } from "../log/redact.js";
@@ -57,24 +57,44 @@ function atomicWrite(path: string, data: Buffer | string): void {
 export class Vault {
   private contents: VaultContents = { ...EMPTY, credentials: {} };
   private loaded = false;
+  private stamp = "";
   readonly warnings: VaultWarning[] = [];
 
   /**
-   * Read and decrypt. Safe to call repeatedly; only the first call does work.
+   * Read and decrypt, reloading whenever secrets.enc has changed underneath us.
+   *
+   * This used to decrypt once and cache forever. Because save() re-encrypts the whole snapshot,
+   * a process holding a stale copy erased anything another process had written since — the same
+   * defect as AccountStore, with worse consequences, because what gets erased here is a
+   * password, a captured session or the API key.
+   *
+   * It was observed: enrolling two accounts while another process held the vault dropped the
+   * stored API key, and the next refresh reported "No Riot API key is configured" for a key
+   * that had been saved minutes earlier.
    *
    * A vault that will not decrypt is moved aside rather than destroyed — DPAPI failure usually
    * means "a different Windows user" or "restored from a backup of another machine", both of
    * which the user may want to recover from.
    */
   async load(): Promise<void> {
-    if (this.loaded) return;
-    this.loaded = true;
-
     if (!existsSync(appPaths.secrets)) {
+      if (this.loaded) return;
+      this.loaded = true;
       this.contents = { ...EMPTY, credentials: {} };
       await this.migrateLegacyPlaintext();
       return;
     }
+
+    let stamp = "";
+    try {
+      const st = statSync(appPaths.secrets);
+      stamp = `${st.mtimeMs}:${st.size}`;
+    } catch {
+      /* fall through and re-read */
+    }
+    if (this.loaded && stamp !== "" && stamp === this.stamp) return;
+    this.loaded = true;
+    this.stamp = stamp;
 
     try {
       const json = await unprotect(readFileSync(appPaths.secrets));
@@ -112,6 +132,14 @@ export class Vault {
   private async save(): Promise<void> {
     this.contents.version = VAULT_SCHEMA_VERSION;
     atomicWrite(appPaths.secrets, await protect(JSON.stringify(this.contents)));
+    // Remember our own write so the next load() does not mistake it for a foreign change.
+    try {
+      const st = statSync(appPaths.secrets);
+      this.stamp = `${st.mtimeMs}:${st.size}`;
+      this.loaded = true;
+    } catch {
+      this.stamp = "";
+    }
   }
 
   /**

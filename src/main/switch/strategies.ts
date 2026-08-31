@@ -251,20 +251,33 @@ export async function switchToAccount(accountId: string, options: SwitchOptions 
 
   let capturedPrevious = false;
   const currentSummary = summariseSession();
-  const activeId = store.getActiveId();
 
   if (currentSummary.present && currentSummary.signedIn) {
     onProgress({ step: "capturing-current", message: "Saving the current session first" });
     const raw = readSessionRaw();
     if (raw) {
-      // Prefer the recorded active account; fall back to matching on the local puuid, so a
-      // session signed in outside the app is not silently thrown away.
-      const ownerId = activeId ?? (await identifyCurrentAccount(store))?.id ?? null;
+      // Who this session belongs to must be OBSERVED, never remembered.
+      //
+      // This used to read `store.getActiveId()` first and only fall back to identifying the
+      // live session. That is backwards: activeAccountId is a UI hint that goes stale, while
+      // the signed-in client is ground truth. When the two disagreed, this wrote the live
+      // session under a different account's key and destroyed that account's stored session.
+      //
+      // Observed for real: activeAccountId still said accountFour while the client was signed
+      // in as accountTwo. Switching then overwrote accountFour's stored session with
+      // accountTwo's, so "switch accountFour" signed in as accountTwo — reporting success
+      // the whole way. The session was unrecoverable; only the password remained.
+      //
+      // So: write under an account id only when the live session is positively identified as
+      // that account. Anything else is parked under an unclaimed id, which costs a little
+      // disk and cannot destroy a session.
+      const identified = await identifyCurrentAccount(store);
+      const ownerId = identified?.id ?? null;
+
       if (ownerId && ownerId !== accountId) {
         await vault.putSession(ownerId, raw);
         capturedPrevious = true;
       } else if (!ownerId) {
-        // Unknown owner: keep it under a timestamped id rather than discarding it.
         await vault.putSession(`unclaimed-${Date.now()}`, raw);
         capturedPrevious = true;
       }
@@ -547,8 +560,10 @@ export async function beginAssistedEnrolment(
   const current = summariseSession();
   if (current.present && current.signedIn) {
     const raw = readSessionRaw();
-    const activeId = store.getActiveId() ?? (await identifyCurrentAccount(store))?.id ?? `unclaimed-${Date.now()}`;
-    if (raw) await vault.putSession(activeId, raw);
+    // Identify, never assume — see the note in switchToAccount. Trusting the remembered
+    // active id here would overwrite that account's stored session with someone else's.
+    const ownerId = (await identifyCurrentAccount(store))?.id ?? `unclaimed-${Date.now()}`;
+    if (raw) await vault.putSession(ownerId, raw);
   }
 
   onProgress({ step: "stopping-client", message: "Closing the Riot Client" });
@@ -587,8 +602,23 @@ async function identifyCurrentAccount(store: ReturnType<typeof getAccountStore>)
   if (!lock) return null;
   try {
     const state = await readLoginState(lock);
-    if (!state.localPuuid) return null;
-    return store.list().find((a) => a.localPuuid === state.localPuuid) ?? null;
+    const accounts = store.list();
+
+    // localPuuid is the strongest signal — stable, and unique per account.
+    if (state.localPuuid) {
+      const byPuuid = accounts.find((a) => a.localPuuid === state.localPuuid);
+      if (byPuuid) return byPuuid;
+    }
+
+    // Fall back to the login username the client reports. Weaker, but still observed rather
+    // than remembered, and it rescues accounts enrolled before localPuuid was recorded.
+    if (state.loginUsername) {
+      const needle = state.loginUsername.trim().toLowerCase();
+      const byUsername = accounts.find((a) => a.loginUsername.trim().toLowerCase() === needle);
+      if (byUsername) return byUsername;
+    }
+
+    return null;
   } catch {
     return null;
   }
