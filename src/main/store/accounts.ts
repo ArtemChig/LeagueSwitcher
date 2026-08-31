@@ -6,7 +6,7 @@
  * launch, before the API refresh has landed (PLAN §4.3), so it is deliberately plain JSON that
  * can be read without decrypting anything.
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { appPaths } from "../riot/paths.js";
 
@@ -127,16 +127,41 @@ function atomicWriteJson(path: string, value: unknown): void {
 export class AccountStore {
   private data: AccountsFile = EMPTY_FILE();
   private loaded = false;
+  private stamp = "";
   readonly warnings: string[] = [];
 
+  /**
+   * Read accounts.json, reloading whenever the file on disk has changed underneath us.
+   *
+   * This used to load once and cache forever, which silently lost data: `save()` writes the
+   * whole in-memory snapshot back, so any process holding a stale copy overwrote whatever
+   * another process had written since. Assisted enrolment is the worst case — it runs for
+   * minutes while the user signs in, so the copy it loaded at startup is almost guaranteed to
+   * be stale by the time it saves. That is how an enrolment could report success, store the
+   * session and password in the vault, and still leave no account in accounts.json.
+   *
+   * Keyed on mtime + size rather than a watcher: cheap, synchronous, and no lifecycle to leak.
+   * This narrows the race to sub-millisecond rather than eliminating it — a true fix needs a
+   * lock file, which is only worth it if two writers ever genuinely overlap.
+   */
   load(): void {
-    if (this.loaded) return;
-    this.loaded = true;
-
     if (!existsSync(appPaths.accounts)) {
+      if (this.loaded) return;
+      this.loaded = true;
       this.data = EMPTY_FILE();
       return;
     }
+
+    let stamp = "";
+    try {
+      const st = statSync(appPaths.accounts);
+      stamp = `${st.mtimeMs}:${st.size}`;
+    } catch {
+      /* fall through to a re-read */
+    }
+    if (this.loaded && stamp !== "" && stamp === this.stamp) return;
+    this.loaded = true;
+    this.stamp = stamp;
 
     try {
       const parsed = JSON.parse(readFileSync(appPaths.accounts, "utf8")) as AccountsFile;
@@ -158,6 +183,15 @@ export class AccountStore {
   save(): void {
     this.data.updatedAt = new Date().toISOString();
     atomicWriteJson(appPaths.accounts, this.data);
+    // Record what we just wrote, so the next load() does not treat our own write as a foreign
+    // change and pointlessly re-read it.
+    try {
+      const st = statSync(appPaths.accounts);
+      this.stamp = `${st.mtimeMs}:${st.size}`;
+      this.loaded = true;
+    } catch {
+      this.stamp = "";
+    }
   }
 
   list(): Account[] {
