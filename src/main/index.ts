@@ -21,6 +21,7 @@ import { restoreSessionFromString } from "./riot/session.js";
 import { getAccountStore, regionFromPlatform, type Account } from "./store/accounts.js";
 import { getVault } from "./store/vault.js";
 import { refreshAllAccounts } from "./api/refreshAll.js";
+import { adoptOrphanSessions } from "./store/adopt.js";
 import { buildExternalLinks } from "./api/links.js";
 import { collectForCurrentAccount, refreshSessionHealth } from "./enrich/collector.js";
 import { getDataDragonVersion, getProfileIcon, readCrestSvg } from "./assets/cache.js";
@@ -413,6 +414,9 @@ void app.whenReady().then(async () => {
   void (async () => {
     try {
       await collectForCurrentAccount();
+      // Heal any stored session that lost its profile before refreshing, so an orphan
+      // cannot quietly persist across launches.
+      await adoptOrphanSessions().catch(() => undefined);
       const summary = await refreshAllAccounts();
       if (summary.ran) lastRefreshAt = new Date().toISOString();
       mainWindow?.webContents.send(ACCOUNTS_CHANGED_CHANNEL);

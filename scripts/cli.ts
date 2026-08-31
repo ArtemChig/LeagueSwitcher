@@ -336,6 +336,14 @@ async function cmdRefresh(): Promise<number> {
     return 1;
   }
 
+  // A stored session with no profile is invisible to every other command, so heal it here
+  // rather than expecting the user to know `adopt` exists. Cheap, and only ever adds.
+  const rescued = await adoptOrphanSessions();
+  for (const a of rescued.adopted) {
+    say(`Recovered ${a.riotId ?? a.id} — it had a stored session but no profile.`);
+  }
+  if (rescued.adopted.length) say("");
+
   say("Refreshing from the public Riot API…\n");
   const summary = await refreshAllAccounts({
     ...(only ? { accountIds: [only.id] } : {}),
