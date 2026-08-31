@@ -66,7 +66,24 @@ export async function refreshAllAccounts(options: RefreshOptions = {}): Promise<
     return { ran: false, skippedReason: "no-accounts", results: [], succeeded: 0, failed: 0, elapsedMs: 0 };
   }
 
-  const apiKey = vault.getApiKey();
+  let apiKey = vault.getApiKey();
+
+  // A missing key is not always a missing key.
+  //
+  // Decryption shells out to powershell.exe, which can fail to start under load — and app
+  // launch is exactly that: the Riot client may be starting alongside us. When that happens
+  // the vault reports itself temporarily unreadable, and a launch refresh that gave up here
+  // would leave every card without rank until something else happened to trigger a reload.
+  // Observed: the app sat on "No Riot API key" for hours with a completely intact vault.
+  //
+  // A transient failure is retryable by definition, so retry it rather than degrading the
+  // whole screen. A genuinely absent key has no such warning and falls straight through.
+  if (!apiKey && vault.warnings.some((w) => w.kind === "unavailable")) {
+    await new Promise((r) => setTimeout(r, 250));
+    await vault.load();
+    apiKey = vault.getApiKey();
+  }
+
   if (!apiKey) {
     // Not a failure. The client-sourced fields (Riot ID, region, level, icon) are already on
     // the cards; only rank and match history are missing. PLAN §8 requires this stay usable.
