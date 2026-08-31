@@ -42,7 +42,7 @@ const EMPTY: VaultContents = { version: VAULT_SCHEMA_VERSION, apiKey: null, cred
 
 /** Non-fatal problems worth surfacing in the UI rather than throwing. */
 export interface VaultWarning {
-  kind: "corrupt" | "migrated" | "unreadable-session" | "unavailable";
+  kind: "corrupt" | "migrated" | "unreadable-session" | "unavailable" | "missing";
   message: string;
   detail?: string;
 }
@@ -89,11 +89,34 @@ export class Vault {
   }
 
   private async loadInner(): Promise<void> {
+    // "The vault file does not exist" is a big claim: it means no API key and no stored
+    // passwords, and the app renders as though the user never configured anything. Windows can
+    // briefly report a file as absent while it is being replaced — atomicWrite renames over
+    // this exact path — so a single existsSync miss is not enough to conclude it.
+    //
+    // Observed: "No Riot API key" over an intact vault, with NO warnings and a launch that
+    // finished ~1s faster than a healthy one. An empty-because-missing vault is the only path
+    // that is both silent and that fast.
+    if (!existsSync(appPaths.secrets)) {
+      for (let i = 0; i < 4 && !existsSync(appPaths.secrets); i++) {
+        await new Promise((r) => setTimeout(r, 60));
+      }
+    }
+
     if (!existsSync(appPaths.secrets)) {
       if (this.loaded) return;
       this.loaded = true;
       this.contents = { ...EMPTY, credentials: {} };
       await this.migrateLegacyPlaintext();
+      // Say so. Silence here is what made this take three rounds to find: an empty vault and
+      // a never-configured one looked identical from the outside.
+      if (!this.contents.apiKey) {
+        this.warnings.push({
+          kind: "missing",
+          message: "No secrets vault found — the API key and stored passwords are not available.",
+          detail: `expected at ${appPaths.secrets}`,
+        });
+      }
       return;
     }
 
