@@ -429,7 +429,7 @@ void app.whenReady().then(async () => {
         const v = await getVault();
         log.warn(
           `launch refresh skipped (${summary.skippedReason ?? "unknown"}); ` +
-            `apiKey=${v.getApiKey() ? "present" : "absent"}; ` +
+            `keyState=${v.getApiKey() ? "present" : "absent"}; ` +
             `vaultWarnings=${JSON.stringify(v.warnings.map((w) => `${w.kind}: ${w.detail ?? w.message}`))}`
         );
       }

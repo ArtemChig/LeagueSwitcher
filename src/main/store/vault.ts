@@ -58,6 +58,8 @@ export class Vault {
   private contents: VaultContents = { ...EMPTY, credentials: {} };
   private loaded = false;
   private stamp = "";
+  /** In-flight load, so concurrent callers await one decrypt instead of racing it. */
+  private loading: Promise<void> | null = null;
   readonly warnings: VaultWarning[] = [];
 
   /**
@@ -77,6 +79,16 @@ export class Vault {
    * which the user may want to recover from.
    */
   async load(): Promise<void> {
+    // Concurrent callers must wait for the SAME load, not start their own and not sail past
+    // a half-finished one. See getVault() for why this happens at app launch.
+    if (this.loading) return this.loading;
+    this.loading = this.loadInner().finally(() => {
+      this.loading = null;
+    });
+    return this.loading;
+  }
+
+  private async loadInner(): Promise<void> {
     if (!existsSync(appPaths.secrets)) {
       if (this.loaded) return;
       this.loaded = true;
@@ -93,9 +105,10 @@ export class Vault {
       /* fall through and re-read */
     }
     if (this.loaded && stamp !== "" && stamp === this.stamp) return;
-    this.loaded = true;
-    this.stamp = stamp;
 
+    // NOT marked loaded yet: decryption is awaited below, and a reader arriving during that
+    // gap must not be told the vault is ready. Setting the flag first is what produced an
+    // empty vault, no warnings, and "No Riot API key" over a file that had one.
     try {
       const json = await unprotect(readFileSync(appPaths.secrets));
       const parsed = JSON.parse(json) as VaultContents;
@@ -105,6 +118,8 @@ export class Vault {
         credentials: parsed.credentials ?? {},
       };
       this.registerAllSecrets();
+      this.loaded = true;
+      this.stamp = stamp;
     } catch (err) {
       // Not every failure means the data is bad.
       //
@@ -139,6 +154,8 @@ export class Vault {
         /* best effort — the important thing is not to crash */
       }
       this.contents = { ...EMPTY, credentials: {} };
+      this.loaded = true;
+      this.stamp = stamp;
       this.warnings.push({
         kind: "corrupt",
         message: "The secrets vault could not be decrypted and has been set aside. Re-enter your API key and passwords.",
@@ -370,10 +387,13 @@ let singleton: Vault | null = null;
 
 /** The process-wide vault. */
 export async function getVault(): Promise<Vault> {
-  if (!singleton) {
-    singleton = new Vault();
-    await singleton.load();
-  }
+  // A second caller must not receive the singleton while the first is still awaiting its
+  // load. It used to: `singleton` was assigned before `load()` resolved, so a concurrent
+  // caller got a Vault with empty contents and no warning — indistinguishable from a vault
+  // with no API key in it. The CLI never hit this because it is sequential; the app calls
+  // this three times at launch (collect, adopt, refresh) and hit it intermittently.
+  if (!singleton) singleton = new Vault();
+  await singleton.load();
   return singleton;
 }
 
