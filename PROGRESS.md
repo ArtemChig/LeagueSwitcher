@@ -12,15 +12,18 @@ Only one task may be `DOING` at a time.
 
 **Phase:** 0 — in progress (P0.1 done)
 **Last updated:** 2026-08-31 — plan reviewed and approved, UI design locked
-**Baseline backup exists:** ✅ YES — `%APPDATA%\LeagueSwitcherackupsaseline-20260831-054810\`
-**Git:** initialised, 2 commits, history verified free of secrets. Commit locally, never push.
+**Baseline backup exists:** ✅ YES — `%APPDATA%\LeagueSwitcher\backups\baseline-20260831-054810`
+**Git:** initialised, history verified free of secrets. Commit locally, **never push**.
 
 **Already verified before the run started:**
 - Riot Client local API surface (789 endpoints) — `docs/RESEARCH.md`
-- Dev API key live, full data pipeline confirmed end-to-end:
-  `account-v1 → summoner-v4 → league-v4` all returned 200 and matched LCU values
+- **Permanent personal API key** validated end-to-end via `scripts/probes/riot-api-check.mjs`:
+  `account-v1 → summoner-v4 → league-v4 → match-v5` all 200, matching LCU values
   (BRONZE I, 5 LP, 13W/10L). Data Dragon pinned at `16.17.1`
-- UI design approved — `docs/mockup.html` is the reference implementation
+- **PUUIDs are key-scoped** — the local client's puuid is NOT usable against the public
+  API. Riot ID is the durable identifier. See PLAN §4.2 and RESEARCH §9
+- UI design approved and locked — `docs/mockup.html` is the reference implementation
+- Rank crests: real Riot assets; `diamond.svg` ships mis-tinted purple, patch to `#4C6FD9`
 
 ---
 
