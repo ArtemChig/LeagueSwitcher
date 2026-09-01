@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { Vault, accountIdFromUsername } from "../src/main/store/vault.js";
 import { exportVault, importVault, looksLikeVaultExport } from "../src/main/store/portableVault.js";
 
-const PASSWORD = "correct-horse-battery-staple-42";
+const PASSWORD = "correct-horse-battery-staple-42"; // scan-secrets: allow — fixture
 const API_KEY = ["RGAPI", "11111111-2222-3333-4444-555555555555"].join("-");
 const SESSION_YAML = "psl:\n  authorization:\n    riot-client:\n      refresh_token: " + "z".repeat(1333) + "\n";
 
@@ -151,8 +151,8 @@ describe("legacy plaintext migration (PLAN §7 rule 8)", () => {
     writeFileSync(
       join(dir, "test-credentials.json"),
       JSON.stringify([
-        { username: "AccountOne", password: "pw-one" },
-        { username: "AccountTwo", password: "pw-two" },
+        { username: "AccountOne", password: "pw-one" }, // scan-secrets: allow — fixture
+        { username: "AccountTwo", password: "pw-two" }, // scan-secrets: allow — fixture
       ]),
       "utf8"
     );
