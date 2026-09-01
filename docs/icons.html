@@ -1,0 +1,206 @@
+<title>LeagueSwitcher Icon Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap">
+
+<style>
+  :root{
+    --bg:#0A0D13; --chrome:#10151E; --surface:#151B26; --surface-2:#1B2330;
+    --ink:#E7ECF3; --ink-2:#96A3B4; --ink-3:#5D6B7C;
+    --rule:#212A37; --rule-2:#2E3948;
+    --gold:#C8973C; --gold-lt:#E8B75A;
+    --steel:#5B8CB8; --steel-lt:#7FB2D4;
+    --cyan:#3FBFDD;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:Barlow,"Segoe UI",system-ui,sans-serif; font-size:15px; line-height:1.55;
+    -webkit-font-smoothing:antialiased; padding:clamp(1rem,4vw,2.5rem);
+  }
+  h1,h2,h3{font-family:Rajdhani,sans-serif;margin:0;text-wrap:balance;}
+  .wrap{max-width:1120px;margin:0 auto;}
+
+  header{border-bottom:1px solid var(--rule);padding-bottom:1.4rem;margin-bottom:2rem;}
+  .eyebrow{font-family:Rajdhani,sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--ink-3);}
+  h1{font-size:clamp(1.8rem,4vw,2.5rem);font-weight:700;letter-spacing:-.01em;margin-top:.4rem;}
+  header p{color:var(--ink-2);max-width:60ch;margin:.6rem 0 0;}
+
+  .grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));}
+  .card{
+    background:var(--surface);border:1px solid var(--rule-2);border-radius:10px;
+    padding:1.2rem 1.3rem 1.3rem;display:flex;flex-direction:column;gap:.9rem;
+  }
+  .card h3{font-size:1.15rem;font-weight:700;letter-spacing:.01em;}
+  .num{font-family:"JetBrains Mono",monospace;font-size:.75rem;color:var(--gold);margin-right:.5rem;}
+  .card p{font-size:.88rem;color:var(--ink-2);margin:0;flex:1;}
+
+  .stage{display:flex;align-items:flex-end;gap:1.1rem;flex-wrap:wrap;}
+  .tile{
+    background:var(--chrome);border:1px solid var(--rule);border-radius:12px;
+    display:grid;place-items:center;padding:.5rem;
+  }
+  .tile.big{width:132px;height:132px;border-radius:16px;}
+  .tile.lt{background:#EEF1F5;border-color:#D5DBE3;}
+  .sizes{display:flex;align-items:flex-end;gap:.7rem;}
+  .sizes figure{margin:0;display:grid;justify-items:center;gap:.35rem;}
+  .sizes figcaption{font-family:"JetBrains Mono",monospace;font-size:.62rem;color:var(--ink-3);}
+
+  .note{font-size:.8rem;color:var(--ink-3);border-left:2px solid var(--rule-2);padding-left:.7rem;}
+
+  footer{margin-top:2.4rem;padding-top:1.4rem;border-top:1px solid var(--rule);color:var(--ink-2);font-size:.9rem;}
+  footer b{color:var(--ink);font-family:Rajdhani,sans-serif;font-size:1rem;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.85em;background:var(--surface-2);
+    border:1px solid var(--rule);padding:.1em .35em;border-radius:3px;}
+</style>
+
+<div class="wrap">
+<header>
+  <span class="eyebrow">Icon options</span>
+  <h1>LeagueSwitcher</h1>
+  <p>Five directions built from things you actually see in the game — the Rift, a Nexus, a poro,
+  a Hextech gem, a ward — each carrying the idea of exchange. Shown large, then at 48 / 32 /
+  16&nbsp;px and on a light tile, because Start-menu search renders small. Tell me a number and I'll
+  build it.</p>
+  <p style="font-size:.88rem;color:var(--ink-3);margin-top:.8rem">Riot's own logo and rank crests
+  are deliberately not used — they're trademarked art, and this is going in a public repo.</p>
+</header>
+
+<div class="grid">
+
+  <div class="card">
+    <h3><span class="num">01</span>Summoner's Rift</h3>
+    <p>The minimap: the square, the river running one diagonal, and mid lane running the other — from the blue base to the red one. That lane already connects two opposite sides, so it becomes the swap axis. The most League-specific shape there is that isn't Riot's own art.</p>
+    <div class="stage">
+      <div class="tile big"><svg viewBox="0 0 128 128" width="104" height="104" aria-label="Summoner's Rift icon"><use href="#r1"/></svg></div>
+      <div class="sizes">
+        <figure><div class="tile" style="width:60px;height:60px"><svg viewBox="0 0 128 128" width="48" height="48"><use href="#r1"/></svg></div><figcaption>48</figcaption></figure>
+        <figure><div class="tile" style="width:44px;height:44px"><svg viewBox="0 0 128 128" width="32" height="32"><use href="#r1"/></svg></div><figcaption>32</figcaption></figure>
+        <figure><div class="tile" style="width:28px;height:28px"><svg viewBox="0 0 128 128" width="16" height="16"><use href="#r1"/></svg></div><figcaption>16</figcaption></figure>
+        <figure><div class="tile lt" style="width:44px;height:44px"><svg viewBox="0 0 128 128" width="32" height="32"><use href="#r1"/></svg></div><figcaption>light</figcaption></figure>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3><span class="num">02</span>Nexus Pair</h3>
+    <p>Two Nexus crystals, blue and gold, one raised over the other. You destroy one to win and defend the other; here they're the two accounts, and the arrows move between them.</p>
+    <div class="stage">
+      <div class="tile big"><svg viewBox="0 0 128 128" width="104" height="104" aria-label="Nexus Pair icon"><use href="#r2"/></svg></div>
+      <div class="sizes">
+        <figure><div class="tile" style="width:60px;height:60px"><svg viewBox="0 0 128 128" width="48" height="48"><use href="#r2"/></svg></div><figcaption>48</figcaption></figure>
+        <figure><div class="tile" style="width:44px;height:44px"><svg viewBox="0 0 128 128" width="32" height="32"><use href="#r2"/></svg></div><figcaption>32</figcaption></figure>
+        <figure><div class="tile" style="width:28px;height:28px"><svg viewBox="0 0 128 128" width="16" height="16"><use href="#r2"/></svg></div><figcaption>16</figcaption></figure>
+        <figure><div class="tile lt" style="width:44px;height:44px"><svg viewBox="0 0 128 128" width="32" height="32"><use href="#r2"/></svg></div><figcaption>light</figcaption></figure>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3><span class="num">03</span>Poro Swap</h3>
+    <p>A poro, split down the middle into two colours. No non-player will read it as League, but every player will, instantly — and it's the only option here with any warmth to it.</p>
+    <div class="stage">
+      <div class="tile big"><svg viewBox="0 0 128 128" width="104" height="104" aria-label="Poro Swap icon"><use href="#r3"/></svg></div>
+      <div class="sizes">
+        <figure><div class="tile" style="width:60px;height:60px"><svg viewBox="0 0 128 128" width="48" height="48"><use href="#r3"/></svg></div><figcaption>48</figcaption></figure>
+        <figure><div class="tile" style="width:44px;height:44px"><svg viewBox="0 0 128 128" width="32" height="32"><use href="#r3"/></svg></div><figcaption>32</figcaption></figure>
+        <figure><div class="tile" style="width:28px;height:28px"><svg viewBox="0 0 128 128" width="16" height="16"><use href="#r3"/></svg></div><figcaption>16</figcaption></figure>
+        <figure><div class="tile lt" style="width:44px;height:44px"><svg viewBox="0 0 128 128" width="32" height="32"><use href="#r3"/></svg></div><figcaption>light</figcaption></figure>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3><span class="num">04</span>Hextech Gem</h3>
+    <p>The faceted gem off a Hextech chest, cut into a blue half and a gold half with the swap through the middle. Angular enough to stay sharp when it shrinks.</p>
+    <div class="stage">
+      <div class="tile big"><svg viewBox="0 0 128 128" width="104" height="104" aria-label="Hextech Gem icon"><use href="#r4"/></svg></div>
+      <div class="sizes">
+        <figure><div class="tile" style="width:60px;height:60px"><svg viewBox="0 0 128 128" width="48" height="48"><use href="#r4"/></svg></div><figcaption>48</figcaption></figure>
+        <figure><div class="tile" style="width:44px;height:44px"><svg viewBox="0 0 128 128" width="32" height="32"><use href="#r4"/></svg></div><figcaption>32</figcaption></figure>
+        <figure><div class="tile" style="width:28px;height:28px"><svg viewBox="0 0 128 128" width="16" height="16"><use href="#r4"/></svg></div><figcaption>16</figcaption></figure>
+        <figure><div class="tile lt" style="width:44px;height:44px"><svg viewBox="0 0 128 128" width="32" height="32"><use href="#r4"/></svg></div><figcaption>light</figcaption></figure>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3><span class="num">05</span>Ward Totem</h3>
+    <p>A stealth ward — the eye on a stake you drop in a bush. It's the item you place to see somewhere you aren't, which is close enough to “look at another account” to be a joke worth making.</p>
+    <div class="stage">
+      <div class="tile big"><svg viewBox="0 0 128 128" width="104" height="104" aria-label="Ward Totem icon"><use href="#r5"/></svg></div>
+      <div class="sizes">
+        <figure><div class="tile" style="width:60px;height:60px"><svg viewBox="0 0 128 128" width="48" height="48"><use href="#r5"/></svg></div><figcaption>48</figcaption></figure>
+        <figure><div class="tile" style="width:44px;height:44px"><svg viewBox="0 0 128 128" width="32" height="32"><use href="#r5"/></svg></div><figcaption>32</figcaption></figure>
+        <figure><div class="tile" style="width:28px;height:28px"><svg viewBox="0 0 128 128" width="16" height="16"><use href="#r5"/></svg></div><figcaption>16</figcaption></figure>
+        <figure><div class="tile lt" style="width:44px;height:44px"><svg viewBox="0 0 128 128" width="32" height="32"><use href="#r5"/></svg></div><figcaption>light</figcaption></figure>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <b>Pick a number</b> — or mix, e.g. “04 but in the blue of 01”. I'll render it to
+  <code>build/icon.png</code> at 512&nbsp;px, rebuild the portable exe with it, and it becomes the
+  taskbar and Start-menu icon.
+  <p class="note" style="margin-top:1rem">Drawn as flat vectors on purpose: Windows renders this at
+  16&nbsp;px in the taskbar and in Start search results, where gradients and fine detail turn to
+  mush. Each one is legible as a silhouette first.</p>
+</footer>
+</div>
+
+<!-- ============ icon definitions ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+
+  <!-- 01 Summoner's Rift -->
+  <symbol id="r1" viewBox="0 0 128 128">
+    <rect x="14" y="14" width="100" height="100" rx="10" fill="none" stroke="#5B8CB8" stroke-width="7"/>
+    <path d="M20 20 108 108" stroke="#3FBFDD" stroke-width="9" stroke-linecap="round" opacity=".35"/>
+    <path d="M40 92 88 44" stroke="#E8B75A" stroke-width="9" stroke-linecap="round"/>
+    <path d="M88 44H68 M88 44v20" fill="none" stroke="#E8B75A" stroke-width="9" stroke-linecap="round"/>
+    <path d="M40 92h20 M40 92V72" fill="none" stroke="#E8B75A" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="34" cy="98" r="9" fill="#5B8CB8"/>
+    <circle cx="94" cy="38" r="9" fill="#E8B75A"/>
+  </symbol>
+
+  <!-- 02 Nexus Pair -->
+  <symbol id="r2" viewBox="0 0 128 128">
+    <path d="M40 30 56 54 40 78 24 54z" fill="#5B8CB8"/>
+    <path d="M40 78 56 54v34l-16 12-16-12V54z" fill="#5B8CB8" opacity=".45"/>
+    <path d="M90 48 106 72 90 96 74 72z" fill="#E8B75A"/>
+    <path d="M90 96 106 72v22l-16 12-16-12V72z" fill="#E8B75A" opacity=".45"/>
+    <path d="M58 24h14a8 8 0 0 1 8 8v8" fill="none" stroke="#E7ECF3" stroke-width="6" stroke-linecap="round"/>
+    <path d="M74 34 80 40 74 46" fill="none" stroke="#E7ECF3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+
+  <!-- 03 Poro Swap -->
+  <symbol id="r3" viewBox="0 0 128 128">
+    <path d="M50 26c0-8 8-12 12-6" fill="none" stroke="#5B8CB8" stroke-width="7" stroke-linecap="round"/>
+    <path d="M64 34a40 36 0 0 0-40 36c0 20 18 32 40 32V34z" fill="#5B8CB8"/>
+    <path d="M64 34a40 36 0 0 1 40 36c0 20-18 32-40 32V34z" fill="#E8B75A"/>
+    <circle cx="46" cy="66" r="6" fill="#0A0D13"/>
+    <circle cx="82" cy="66" r="6" fill="#0A0D13"/>
+    <path d="M58 86h12v10a6 6 0 0 1-12 0z" fill="#0A0D13" opacity=".55"/>
+  </symbol>
+
+  <!-- 04 Hextech Gem -->
+  <symbol id="r4" viewBox="0 0 128 128">
+    <path d="M64 12 100 34v44L64 116 28 78V34z" fill="#5B8CB8"/>
+    <path d="M64 12 100 34v44L64 116z" fill="#E8B75A"/>
+    <path d="M28 34 64 56l36-22M64 56v60" fill="none" stroke="#0A0D13" stroke-width="6" stroke-linejoin="round" opacity=".45"/>
+    <path d="M44 70h40" stroke="#0A0D13" stroke-width="8" stroke-linecap="round"/>
+    <path d="M76 62 86 70l-10 8" fill="none" stroke="#0A0D13" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M52 88h40" stroke="#0A0D13" stroke-width="8" stroke-linecap="round" opacity="0"/>
+  </symbol>
+
+  <!-- 05 Ward Totem -->
+  <symbol id="r5" viewBox="0 0 128 128">
+    <path d="M64 74v34" stroke="#8A6A3C" stroke-width="10" stroke-linecap="round"/>
+    <path d="M46 104h36" stroke="#8A6A3C" stroke-width="9" stroke-linecap="round"/>
+    <path d="M64 16c22 0 34 18 34 30S86 76 64 76 30 58 30 46s12-30 34-30z" fill="#5B8CB8"/>
+    <circle cx="64" cy="46" r="14" fill="#0A0D13"/>
+    <circle cx="64" cy="46" r="7" fill="#E8B75A"/>
+    <path d="M96 92h-22" stroke="#E8B75A" stroke-width="8" stroke-linecap="round"/>
+    <path d="M82 84 74 92l8 8" fill="none" stroke="#E8B75A" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+
+</svg>

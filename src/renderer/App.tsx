@@ -18,6 +18,7 @@ import { EnrolModal } from "./components/EnrolModal.js";
 import { SettingsModal } from "./components/SettingsModal.js";
 import { FirstRun } from "./components/FirstRun.js";
 import { CrestSprite, Crest, normaliseTier } from "./crests.js";
+import logoUrl from "./logo.png";
 
 type SortMode = "rank" | "name" | "recent";
 
@@ -195,16 +196,7 @@ export function App(): JSX.Element {
 
       <div className="titlebar">
         <div className="logo">
-          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-            <path
-              d="M1 3h6M1 3l2-2M1 3l2 2M11 9H5M11 9l-2-2M11 9l-2 2"
-              fill="none"
-              stroke="#8FB6D9"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <img src={logoUrl} alt="" width="18" height="18" />
         </div>
         <span className="name">LeagueSwitcher</span>
         <span style={{ marginLeft: "auto", fontSize: ".74rem", color: "var(--ink-3)" }}>

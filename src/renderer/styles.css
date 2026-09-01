@@ -66,6 +66,7 @@
     background:var(--chrome);border-bottom:1px solid var(--rule);
     display:flex;align-items:center;gap:.75rem;padding:.55rem .9rem;
   }
+  .logo img{display:block;border-radius:4px;}
   .logo{
     width:22px;height:22px;border-radius:5px;flex:none;
     background:linear-gradient(140deg,#2E4C6D,#1B2E44);

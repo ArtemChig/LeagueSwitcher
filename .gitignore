@@ -48,3 +48,6 @@ desktop.ini
 
 # Verification artefacts
 ui-check/
+
+# Brand source art is large; the derived icons are what the build needs
+assets/brand/*.png
