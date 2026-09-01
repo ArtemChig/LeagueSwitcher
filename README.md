@@ -198,3 +198,40 @@ scripts/probes/      standalone probes against the live client
 
 Design and rationale: [`PLAN.md`](PLAN.md) · verified facts: [`docs/RESEARCH.md`](docs/RESEARCH.md) ·
 what was actually done: [`PROGRESS.md`](PROGRESS.md).
+
+---
+
+## Install
+
+Grab the portable `.exe` from [Releases](../../releases), or build it:
+
+```bash
+npm install
+npm run dist
+```
+
+To get it into Start-menu search — type "leagueswitcher", press Enter:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+```
+
+That copies the exe to `%LOCALAPPDATA%\Programs\LeagueSwitcher` and adds Start-menu and desktop
+shortcuts. It copies rather than shortcutting into `release\`, because `npm run dist` wipes that
+directory on every build. `-Uninstall` reverses it and leaves your vault alone.
+
+---
+
+## Licence and disclaimer
+
+MIT — see [LICENSE](LICENSE).
+
+**Not affiliated with, endorsed by, or sponsored by Riot Games.** League of Legends and Riot
+Games are trademarks of Riot Games, Inc. This is a personal utility that reads the Riot Client's
+own local API and Riot's public developer API. It grants no gameplay advantage, does not touch
+game memory, and does not modify the game. Automating the Riot Client is not something Riot
+formally sanctions, and a patch can break the mechanism at any time — the switch ladder in
+`PLAN.md` §3 is layered so that it degrades rather than dies.
+
+Account data stays on your machine: passwords and sessions are encrypted with Windows DPAPI in
+`%APPDATA%\LeagueSwitcher\`, never in this repository.
