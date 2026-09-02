@@ -234,6 +234,16 @@
   .cbtn:hover{background:var(--surface-3);color:var(--ink);}
   .cbtn.go{flex:1;background:var(--tier);border-color:transparent;color:#0A0D13;}
   .cbtn.go:hover{filter:brightness(1.12);background:var(--tier);color:#0A0D13;}
+  /* An unranked card takes the grey tier colour, which made a perfectly usable Switch button
+     look disabled. Rank should tint the card, never imply an action is unavailable — so
+     unranked falls back to the app's own accent instead of grey. */
+  .card[data-unranked="true"] .cbtn.go{background:var(--steel);color:#07101A;}
+  .card[data-unranked="true"] .cbtn.go:hover{background:var(--steel);filter:brightness(1.12);}
+  /* Actually-disabled buttons get their own unmistakable treatment. */
+  .cbtn:disabled,.cbtn.go:disabled{
+    background:var(--surface-2);color:var(--ink-3);border-color:var(--rule);
+    cursor:not-allowed;filter:none;
+  }
   .cbtn:focus-visible{outline:2px solid var(--tier);outline-offset:2px;}
 
   /* add tile */

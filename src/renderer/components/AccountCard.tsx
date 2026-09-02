@@ -76,6 +76,7 @@ export function AccountCard({ account, loading, onSwitch, onDetails, onRetry }: 
   return (
     <div
       className="card"
+      data-unranked={account.rankLabel === "Unranked" ? "true" : undefined}
       style={{ ["--tier" as string]: `var(--${tier})` }}
       role="button"
       tabIndex={0}

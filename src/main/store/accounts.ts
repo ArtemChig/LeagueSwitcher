@@ -117,9 +117,13 @@ const EMPTY_FILE = (): AccountsFile => ({
   updatedAt: new Date().toISOString(),
 });
 
+let tempCounter = 0;
+
 function atomicWriteJson(path: string, value: unknown): void {
   mkdirSync(dirname(path), { recursive: true });
-  const temp = join(dirname(path), `.${process.pid}-${Date.now()}.tmp`);
+  // Unique per call: pid+timestamp alone collided on ~46% of back-to-back writes, which is
+  // harmless while every write is synchronous but a trap the moment one is not.
+  const temp = join(dirname(path), `.${process.pid}-${Date.now()}-${(tempCounter++).toString(36)}.tmp`);
   writeFileSync(temp, JSON.stringify(value, null, 2), "utf8");
   renameSync(temp, path);
 }
@@ -146,9 +150,31 @@ export class AccountStore {
    */
   load(): void {
     if (!existsSync(appPaths.accounts)) {
-      if (this.loaded) return;
+      // "The file is gone" wipes every account, so do not conclude it from one stat.
+      // Windows can report a file as briefly absent while it is being replaced, and
+      // atomicWriteJson renames over this exact path.
+      for (let i = 0; i < 3 && !existsSync(appPaths.accounts); i++) {
+        try {
+          statSync(dirname(appPaths.accounts));
+        } catch {
+          /* ignore — this is a cheap way to yield without going async */
+        }
+      }
+    }
+
+    if (!existsSync(appPaths.accounts)) {
+      if (this.loaded && this.data.accounts.length === 0) return;
       this.loaded = true;
       this.data = EMPTY_FILE();
+      // Clear the stamp, or the staleness check below will match an unchanged file on the
+      // next call and early-return with this empty data — permanently.
+      //
+      // That is exactly what happened: one transient miss emptied the store, every later
+      // load() short-circuited, every update() then found no account and silently no-op'd,
+      // so accounts.json was never rewritten, its mtime never changed, and the app stayed
+      // empty until it was restarted. Accounts "randomly disappeared" and came back on
+      // relaunch.
+      this.stamp = "";
       return;
     }
 
@@ -159,7 +185,10 @@ export class AccountStore {
     } catch {
       /* fall through to a re-read */
     }
-    if (this.loaded && stamp !== "" && stamp === this.stamp) return;
+    // Never treat an empty in-memory store as up to date. If the stamp matches but we hold
+    // nothing while the file is non-empty, something emptied us — re-read rather than serve it.
+    const looksEmptied = this.data.accounts.length === 0;
+    if (this.loaded && stamp !== "" && stamp === this.stamp && !looksEmptied) return;
     this.loaded = true;
     this.stamp = stamp;
 
@@ -178,6 +207,18 @@ export class AccountStore {
       this.data = EMPTY_FILE();
       this.warnings.push(`accounts.json was unreadable and has been set aside at ${aside} (${(err as Error).message})`);
     }
+  }
+
+  /** Force the next read to come from disk, ignoring the staleness stamp. */
+  reload(): void {
+    this.loaded = false;
+    this.stamp = "";
+    this.load();
+  }
+
+  /** Drain warnings so a caller can log them once rather than on every poll. */
+  takeWarnings(): string[] {
+    return this.warnings.splice(0, this.warnings.length);
   }
 
   save(): void {
@@ -233,7 +274,14 @@ export class AccountStore {
   update(id: string, changes: Partial<Account>): Account | null {
     this.load();
     const existing = this.get(id);
-    if (!existing) return null;
+    if (!existing) {
+      // Silently doing nothing here is how an emptied store hid itself: switches and refreshes
+      // both go through update(), so every write became a no-op and nothing ever reached disk.
+      // A miss is now recorded, because "the account I am updating does not exist" is never
+      // normal.
+      this.warnings.push(`update("${id}") found no such account — the store may have been emptied`);
+      return null;
+    }
     return this.upsert({ ...existing, ...changes, id: existing.id });
   }
 

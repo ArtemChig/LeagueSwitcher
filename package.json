@@ -1,6 +1,6 @@
 {
   "name": "leagueswitcher",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Switch between League of Legends accounts in one click, with a live dashboard of rank, level and region.",
   "type": "module",

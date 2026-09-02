@@ -115,9 +115,30 @@ async function buildAccountViews(): Promise<AccountView[]> {
   // show as needing re-enrolment before the user clicks Switch and fails.
   await refreshSessionHealth((id) => vault.hasSession(id));
 
-  const views = store
-    .list()
-    .map((a) => toView(a, activeId, vault.hasSession(a.id), vault.hasCredential(a.id)));
+  // Guard: the grid must never show fewer accounts than there are stored sessions.
+  //
+  // Reported as "accounts randomly disappear after a while, and reopening loads them back".
+  // Whatever empties the in-memory store, the sessions on disk are the ground truth for how
+  // many accounts exist — a session file is only ever written for a real, enrolled account.
+  // If the store is short, it is wrong, so re-read it from disk before rendering.
+  let accounts = store.list();
+  const storedSessions = vault.listSessionAccountIds();
+  if (accounts.length < storedSessions.length) {
+    log.warn(
+      `account store held ${accounts.length} of ${storedSessions.length} known accounts — reloading from disk`
+    );
+    store.reload();
+    accounts = store.list();
+    if (accounts.length < storedSessions.length) {
+      // Still short: the profiles really are missing, so rebuild them from the sessions.
+      await adoptOrphanSessions().catch(() => undefined);
+      accounts = store.list();
+      log.warn(`after adopting orphans: ${accounts.length} accounts`);
+    }
+  }
+  for (const w of store.takeWarnings()) log.warn(`account store: ${w}`);
+
+  const views = accounts.map((a) => toView(a, activeId, vault.hasSession(a.id), vault.hasCredential(a.id)));
 
   // Active account pinned to the top (PLAN §5), then by rank.
   return views.sort(compareForRankSort);

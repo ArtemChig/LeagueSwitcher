@@ -104,9 +104,14 @@ export class Vault {
     }
 
     if (!existsSync(appPaths.secrets)) {
-      if (this.loaded) return;
+      if (this.loaded && !this.contents.apiKey && Object.keys(this.contents.credentials).length === 0) return;
       this.loaded = true;
       this.contents = { ...EMPTY, credentials: {} };
+      // Clear the stamp too. Leaving it set means the staleness check below matches an
+      // unchanged file on the next call and early-returns with these empty contents — for the
+      // life of the process. That is what made every account report "no password stored" while
+      // the vault on disk was intact.
+      this.stamp = "";
       await this.migrateLegacyPlaintext();
       // Say so. Silence here is what made this take three rounds to find: an empty vault and
       // a never-configured one looked identical from the outside.

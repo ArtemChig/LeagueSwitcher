@@ -65,7 +65,7 @@ export function DetailPanel({ account, onClose, onSwitch, onReenrol, onDelete, o
     }
     const stored = await window.api.getCredentials(account!.id);
     if (!stored) {
-      onToast("No password is stored for this account yet.");
+      onToast("No password saved for this account — switching does not need one. Add one only if you want re-enrolment to be one click.");
       setRevealed(true);
       return;
     }
@@ -223,7 +223,7 @@ export function DetailPanel({ account, onClose, onSwitch, onReenrol, onDelete, o
                 id="f-pass"
                 type={revealed ? "text" : "password"}
                 autoComplete="off"
-                placeholder={account.hasStoredPassword ? "••••••••••••" : "No password stored"}
+                placeholder={account.hasStoredPassword ? "••••••••••••" : "Optional — not needed to switch"}
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
@@ -235,6 +235,13 @@ export function DetailPanel({ account, onClose, onSwitch, onReenrol, onDelete, o
               </button>
             </div>
           </div>
+          {!account.hasStoredPassword && (
+            <p className="hint" style={{ marginTop: ".35rem" }}>
+              This account was enrolled by signing in, so no password was saved. Switching never
+              needs one — it reuses the stored session. Save it here only if you want re-enrolment
+              to be one click should the session ever expire.
+            </p>
+          )}
           <div className="pactions" style={{ marginTop: ".8rem" }}>
             <button className="pbtn" onClick={() => void save()} disabled={!dirty || saving}>
               {saving ? "Saving…" : "Save credentials"}
