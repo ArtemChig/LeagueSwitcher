@@ -1,5 +1,8 @@
 # Overnight run — paste this into the loop
 
+> **Internal**: how the unattended build session was driven. Of no use unless you are rerunning
+> that experiment.
+
 Paste the block below as the loop's prompt. It is written to be re-entrant: every firing re-reads
 state from disk, so a context reset loses nothing.
 

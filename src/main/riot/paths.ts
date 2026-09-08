@@ -7,6 +7,7 @@
  *     cannot send a write somewhere unexpected.
  */
 import { join } from "node:path";
+import { discoverRiotInstall } from "./discover.js";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -17,8 +18,16 @@ function required(name: string): string {
 const LOCALAPPDATA = () => required("LOCALAPPDATA");
 const APPDATA = () => required("APPDATA");
 
-/** Riot's default install root. Overridable because not everyone installs to C:. */
-export const RIOT_INSTALL_ROOT = process.env.LEAGUESWITCHER_RIOT_ROOT ?? "C:\\Riot Games";
+/**
+ * Where Riot is installed on THIS machine, discovered from Riot's own manifest rather than
+ * assumed. See `discover.ts`.
+ *
+ * This was a hardcoded `C:\Riot Games`, overridable only by an environment variable — fine on
+ * the machine it was written on, and unusable for anyone who put League on another drive, which
+ * is common because the install is large. "Set an env var before the app will start" is not an
+ * install experience.
+ */
+export { discoverRiotInstall, resetRiotInstallCache } from "./discover.js";
 
 export const riotPaths = {
   /** `Riot Client:<pid>:<port>:<password>:https` — written while the client runs. */
@@ -27,7 +36,7 @@ export const riotPaths = {
   },
   /** `LeagueClient:<pid>:<port>:<password>:https` — written while League runs. */
   get lcuLockfile() {
-    return join(RIOT_INSTALL_ROOT, "League of Legends", "lockfile");
+    return join(discoverRiotInstall().leagueDir, "lockfile");
   },
   /** THE session file. The refresh token lives here; this is what a switch swaps. */
   get session() {
@@ -38,7 +47,11 @@ export const riotPaths = {
     return join(LOCALAPPDATA(), "Riot Games", "Riot Client", "Config", "RiotClientSettings.yaml");
   },
   get rcServices() {
-    return join(RIOT_INSTALL_ROOT, "Riot Client", "RiotClientServices.exe");
+    return discoverRiotInstall().rcServices;
+  },
+  /** The League install directory, for diagnostics. */
+  get leagueDir() {
+    return discoverRiotInstall().leagueDir;
   },
 } as const;
 

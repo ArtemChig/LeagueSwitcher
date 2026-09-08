@@ -3,7 +3,42 @@
 Switch between League of Legends accounts in one click, with a dashboard of rank, level, region
 and quick links. Windows, portable single `.exe`, no installer.
 
-A switch takes about **7 seconds** and needs no password and no captcha.
+A switch takes about **8 seconds** and needs no password and no captcha.
+
+---
+
+## Get started
+
+1. **[Download the latest release](../../releases/latest)** — one `.exe`, nothing to install.
+2. Run it. Windows SmartScreen will warn because the build is unsigned: **More info → Run anyway.**
+3. On first run it takes a safety snapshot of your current Riot login, then captures whichever
+   account you are already signed in as.
+4. **Add account** for each of the others. It opens a clean Riot sign-in; you complete it once,
+   including the captcha, and the session is captured. After that, switching to that account never
+   asks for a password again.
+
+Optionally, to launch it by typing "leagueswitcher" into Start:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+```
+
+### What you need
+
+- **Windows** — this reads the Riot Client's own files and drives PowerShell. There is no
+  macOS or Linux build, and there will not be one.
+- **The Riot Client installed.** Any drive; the app reads Riot's own install manifest to find it.
+- **Nothing else.** No API key, no account, no sign-up.
+
+A [Riot API key](docs/API-KEY-SETUP.md) is **optional** and adds rank and match history for every
+account at once. Without one the app still shows Riot ID, region, level and profile icon, all read
+from the Riot Client directly.
+
+### Your data stays yours
+
+Passwords and sessions are encrypted with Windows DPAPI in `%APPDATA%\LeagueSwitcher\` — readable
+only by your Windows user, on your machine. Nothing is uploaded anywhere. The only network calls
+are to Riot's own public API, and only if you add a key.
 
 ---
 

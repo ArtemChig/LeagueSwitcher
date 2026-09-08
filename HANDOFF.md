@@ -1,5 +1,7 @@
 # Morning handoff — overnight run, 2026-08-31
 
+> **Internal**: the morning report from the unattended build session, kept as a record.
+
 **LeagueSwitcher works.** All five phases are complete, the portable `.exe` is built and has
 been run, and a real account switch takes **7.1 seconds** end to end.
 

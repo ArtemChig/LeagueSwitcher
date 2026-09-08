@@ -1,5 +1,7 @@
 # Overnight Autonomous Execution Protocol
 
+> **Internal**: rules for the unattended build session. Not needed to use or build the app.
+
 Rules for a self-refreshing CLI working through [`PLAN.md`](../PLAN.md) unattended.
 The context window **will** reset several times. This document exists so a fresh context resumes
 without losing the thread, repeating destructive work, or stopping early.

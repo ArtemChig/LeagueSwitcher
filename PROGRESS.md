@@ -1,5 +1,7 @@
 # Progress Ledger
 
+> **Internal build ledger** from development. Not needed to use or build the app.
+
 Single source of truth for what is actually done. Update **as work completes**, not in batches.
 See [`docs/OVERNIGHT-PROTOCOL.md`](docs/OVERNIGHT-PROTOCOL.md) for the rules.
 

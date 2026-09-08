@@ -1,5 +1,8 @@
 # LeagueSwitcher — Master Plan
 
+> **Internal design document.** Written while building this, kept because the reasoning is the
+> useful part. If you just want to use the app, the [README](README.md) is the front door.
+
 A personal Windows desktop app to switch between ~10 League of Legends accounts in one click, with
 a dashboard of username, region, rank, level, and quick links (op.gg etc.).
 

@@ -1,20 +1,26 @@
-# Riot API Key — setup guide
+# Riot API key - optional
 
-Two keys, two purposes. Get the development key in the next two minutes so tonight's build has
-something live to test against; submit the personal key application in the next ten so it's
-approved in a few days.
+**You do not need this to switch accounts.** Switching, enrolling, Riot IDs, regions, levels and
+profile icons all come from the Riot Client itself and work with no key at all.
 
-Neither key ever goes in the repo. Both live at
-`%APPDATA%\LeagueSwitcher\riot-api-key.txt` (plaintext for now, migrated into the DPAPI-encrypted
-vault at task P1.5).
+A key adds one thing: **rank and match history**, fetched for every account at once so the grid
+shows them without signing into each. If that is not worth ten minutes, skip this file - the app
+shows a "No Riot API key" banner and is otherwise fully functional.
+
+The key is stored encrypted with Windows DPAPI in `%APPDATA%\LeagueSwitcher\`, and is only ever sent
+to Riot as an `X-Riot-Token` header.
+
+Two kinds of key. The development key works immediately and expires every 24 hours; the personal
+key never expires but takes a few days to be approved. Get the first to try it now, apply for the
+second if you intend to keep using it.
 
 ---
 
 ## Part 1 — Development key (2 minutes, works immediately)
 
-1. Go to **https://developer.riotgames.com** and sign in with any Riot account.
-   Use your **main account**, not one of the four test accounts — the key is tied to whoever signs
-   in, and you don't want it bound to an account the switcher is about to log in and out of.
+1. Go to **https://developer.riotgames.com** and sign in with a Riot account.
+   Prefer an account you will **not** be switching between — the key belongs to whoever signs in,
+   and it is simpler if that account is not one the app logs in and out of.
 2. On the dashboard, find the **DEVELOPMENT API KEY** panel.
 3. Click **REGENERATE API KEY**, then copy the value. It looks like `RGAPI-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`.
 4. Save it:
@@ -23,8 +29,8 @@ vault at task P1.5).
 echo "RGAPI-paste-your-key-here" > "$APPDATA/LeagueSwitcher/riot-api-key.txt"
 ```
 
-**It expires 24 hours after generation.** That is fine for testing tonight and unusable as a
-permanent answer — hence Part 2.
+**It expires 24 hours after generation.** Fine for trying the app out, unusable as a permanent
+answer — hence Part 2.
 
 ### Verify it works
 
@@ -44,12 +50,12 @@ A JSON body with a `puuid` means the key is live. `401` means it expired or was 
    layout has changed, the substance is the same: they want to know what you're building, that it
    isn't public, and that it doesn't monetise their data.
 
-**Suggested answers** — accurate for this project, adjust freely:
+**Suggested answers** — accurate for this app; adjust to fit what you are actually doing:
 
 | Field | Suggested answer |
 |---|---|
 | Product name | `LeagueSwitcher` |
-| Product URL | Your private GitHub repo URL, or `http://localhost` if the repo isn't up yet |
+| Product URL | Your GitHub profile, or `http://localhost` if you have nothing to point at |
 | Product description | *A personal desktop utility for switching between my own League of Legends accounts. It reads publicly available summoner and ranked data (level, profile icon, tier, division, LP, win/loss) for the handful of accounts I own, so I can see them at a glance instead of logging into each one. Single user, runs locally on my own PC, not distributed and not monetised.* |
 | Who will use it | Just me — single private user |
 | Will you monetise | No |
